@@ -1,0 +1,1140 @@
+#!/bin/csh
+# @$-r onroad                         # request name
+# 11/3/20 - Add 6 columns to ouput for B_McD (VOC plus 5 VCP point categories)
+# This program begins process of generating 4km grids of
+# point emissions from NEI05 emissions McKeen 12/3/08
+# 9/27/03 - ISCCMX is number of SCCs in emissn file - must
+# supply these SCCs in fort.2 before program works now.
+# Version uses OSD emissions, if available, or takes annual 
+# emissions & converts to OSD using temporal allocation factors
+#  Frost 10/17/03
+#
+#               ********************************************
+#               *******      C shell for plot        *******
+#               ********************************************
+#
+#       this is INTERACTIVE or BATCH
+#
+if ( $?ENVIRONMENT ) then
+   echo "environment variable defined as $ENVIRONMENT"
+else
+   setenv ENVIRONMENT INTERACTIVE
+   echo "environment variable defined as $ENVIRONMENT"
+endif
+#
+#       have the temporary disk as default
+#
+#chdir /wrk/d2/stu/nei17/point/
+chdir /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202103
+#
+#       set up input units:
+# echo "if ( -e relp_4BMcD.f ) rm relp_4BMcD.f"
+if ( -e fort.5 ) rm fort.5
+cat >fort.5<< EOFA
+'/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Gen_RELPT_input/output/oilgas2_SmokeFlatFile_POINT_202406.csv' file of oil/gas point emissions
+'/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Gen_RELPT_input/output/egucems202103_2017NEI_POINT_202404.csv' file of CEMS EGU point emissions
+'/nfs/csd4/archive/stu/nei17/point_dat/egunoncems2_2017NEI_POINT_20200412.csv' file of nonCEMS EGU point emissions
+'/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Gen_RELPT_input/output/nonegu2_SmokeFlatFile_POINT_202402.csv' file of nonEGU point emissions
+EOFA
+if (   -d ./commons ) then
+   chdir  ./commons
+else
+   mkdir  ./commons
+   chmod 755 ./commons
+   chdir  ./commons
+endif
+if ( -e parame.h ) rm parame.h
+cat >parame.h<< EOFA
+C-----------------------------------------------------------------------
+      PARAMETER(ISCCMX=6000,NRECMX=9999999,NSITMX=56382) ! 6/29/19 first pass
+C     PARAMETER(ISCCMX=6000,NRECMX=8832901,NSITMX=56382) ! 6/29/19 first pass
+C     PARAMETER(ISCCMX=6000,NRECMX=6482734,NSITMX=56382) ! NRECMX is sum of records in IPM plus nonIPM files 10/18/13
+C     PARAMETER(ISCCMX=6000,NRECMX=1158379,NSITMX=56382)
+      PARAMETER(NIPMMX=11627) ! Max IPM records, =IRLEMX in make_monthly_ipm.sub
+      PARAMETER(NCEMMX=4455)  ! Max CEMs records, =ICEMP in cemhrly.sub
+      PARAMETER(IX=1332,JX=1008,IP=IX+1,JP=JX+1,IM=IX-1,JM=JX-1)
+      PARAMETER(IPRI=7)  ! IPRI is number of primary species
+      PARAMETER(ISTCMX=57000)
+C     PARAMETER(ICONTY=3141)
+      PARAMETER(IZLEV=12,IZLVM=IZLEV-1,ISP2=4)
+C Parameters for indexing month, week, & day allocation profiles
+      PARAMETER(IMNMX=1000,IWKMX=2003,IDYMX=2012)
+C Parameters for release point indexing
+C     PARAMETER(ICEMMX=635913)
+      PARAMETER(ICEMMX=800000) ! 6/29/19 first pass
+C     PARAMETER(IRLPMX=206621)
+      PARAMETER(IRLPMX=350000) ! 6/29/19 first pass
+C     PARAMETER(ICEMMX=446871)
+C     PARAMETER(IRLPMX=153017)
+C Number of VOC species in SAPRAC99 mechanism and Speciate3.2 Profile assignments
+      PARAMETER(IVOCSAP=30,IVOCEX=11,IVOC=IVOCSAP+IVOCEX,IVOCPMX=650)
+C Number of PM2.5 species in EPA PM speciation file
+      PARAMETER(IPM25=5,IPM2PMX=650)
+C  ITIMVAR: 1= hourly emis output,0= not; IDYoWK: 0=average,1=weeday,2=Saturday,3=Sunday
+      PARAMETER(ITIMVAR=1,IDYoWK=0)
+C
+EOFA
+if ( -e mappar.h ) rm mappar.h
+cat >mappar.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /MAPPAR/ DX,XLATC,XLONC,IL,JL,PLM1,PLM2,PLM3,PLM4,IPROJ,
+     -CLAT1,CLAT2
+      COMMON /MAPNES1/ INEST1,XNESSTR,YNESSTR,DXBIGDO
+C
+EOFA
+if ( -e sccidex.h ) rm sccidex.h
+cat >sccidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /SC2SUR/ISCCNUM(ISCCMX)
+      INTEGER*8 ISCCNUM
+C
+EOFA
+if ( -e tafidex.h ) rm tafidex.h
+cat >tafidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /SC2TAF/IDMN(ISCCMX),IDWK(ISCCMX),IDDY(ISCCMX),
+     - FMN(IMNMX,12),FWK(IWKMX,7),FDY(IDYMX,24),
+     - FSCMN(ISCCMX,12),FSCWK(ISCCMX,7),FSCDY(ISCCMX,24)
+C
+EOFA
+if ( -e nsitidex.h ) rm nsitidex.h
+cat >nsitidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /EMSITE/EMISAN(NSITMX,7)
+      COMMON /CSITE/SITENAM(NSITMX)
+      CHARACTER*20 SITENAM
+C
+EOFA
+if ( -e vocidex.h ) rm vocidex.h
+cat >vocidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON/VOC1/ ISCCVOC(ISCCMX),PRFLUMP(IVOC,IVOCPMX)
+     -,FACSCC2T(ISCCMX)
+C
+EOFA
+if ( -e pm2idex.h ) rm pm2idex.h
+cat >pm2idex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON/PM25/ ISCCPM2(ISCCMX),PRFLPM2(IPM25,IPM2PMX)
+     -,FACSCC2T(ISCCMX)
+C
+EOFA
+if ( -e names.h ) rm names.h
+cat >names.h<< EOFA
+C-----------------------------------------------------------------------
+C
+      COMMON/NAMER/NAM,INARG,NAMVOC(IVOC),NAMPM2(IPM25),SPECNAM(IPRI)
+C     COMMON/NAMER/NAM(ISP2),CNAME(ICONTY)
+      COMMON/ZLEV/ ZLEV(IZLEV)
+      COMMON/DIRECTS/INDIR,INDIR2,INDIRnoEGU,INDIROnG,OUFIL
+      COMMON/INTGR1/LLET
+      CHARACTER*10 NAM
+      CHARACTER*256 INDIR,INDIR2,INDIRnoEGU,INDIROnG,OUFIL
+      CHARACTER*9 INARG
+      CHARACTER*10 NAMVOC
+      CHARACTER*10 NAMPM2
+      CHARACTER*8 SPECNAM
+      INTEGER LLET
+EOFA
+if ( -e timvari.h ) rm timvari.h
+cat >timvari.h<< EOFA
+C-----------------------------------------------------------------------
+C
+      COMMON/TVREAL/EM(24,IRLPMX)
+      COMMON/TVCHAR/TVDIRNM
+      CHARACTER*5 TVDIRNM
+EOFA
+if ( -e relpoin.h ) rm relpoin.h
+cat >relpoin.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON/RELPNTI/NRPTRK(NRECMX)
+      INTEGER NRPTRK
+EOFA
+if ( -e pvars.h ) rm pvars.h
+cat >pvars.h<< EOFA
+C-----------------------------------------------------------------------
+C
+      COMMON/PVARI/ISTATE,ICOUN,IPER,IUTMZON,IRTYP,FUGHT,IYEAR
+      COMMON/PVARC/SITEID,UNITID,ERPTID,PROCID,ORISID,XYTYPE,C8DUM
+      COMMON/PVARI8/ISCC,ISTRMNDY,IENDMNDY
+      COMMON/PVAR/STKHGT,STKDIAM,ISTKTMP,STKFLOW,STKVEL,WINTHRU,
+     -SPRTHRU,SUMTHRU,FALTHRU,XLAT,XLON,ANN_EMS
+      INTEGER*8 I8PN1,I8PN2,ISCC,ISTRMNDY,IENDMNDY
+      COMMON/PCHARS/NAMINF(7),POLCODE,SITEDESC
+      CHARACTER*8 XYTYPE
+      CHARACTER*10 POLCODE,NAMINF
+      CHARACTER*15 SITEID
+      CHARACTER*8 UNITID,ERPTID,PROCID,ORISID
+      CHARACTER*120 SITEDESC
+      CHARACTER*6 C8DUM
+EOFA
+cd ..
+rm -f relp_4BMcD.f
+cat >relp_4BMcD.f<< EOFB
+      PROGRAM MAIN
+C===============================================================================
+C
+C  This program plots EPA 1996 (NET V.5) emissions for selected Lambert map,
+C  for first cut,
+C===============================================================================
+      include 'commons/parame.h'
+      include 'commons/mappar.h'
+      include 'commons/names.h'
+      include 'commons/sccidex.h'
+      include 'commons/nsitidex.h'
+      include 'commons/tafidex.h'
+      INTEGER*8 ISCCIN
+      DATA XP1,XP2/1.,1./
+C Nesting Corner of 4km EPA-surrogate file domain
+      DATA DX,INEST1,XNESSTR,YNESSTR/4.E3,0,0.,0./
+      DATA DXBIGDO,XLATC,XLONC,IL,JL/4.E3,40.,-97.,1369,1045/
+      DATA CLAT1,CLAT2,IPROJ/45.,33.,1/
+      DATA SPECNAM/'NOX','SO2','CO','PM25-PRI','PM10-PRI','NH3','VOC'/
+C     DATA LABL/' Plot to test incorporation of county boundaries  '/
+C     CALL GETARG(1,INARG)
+C     LLET=LNBLNK(INARG)
+C     NAM=INARG
+      OUFIL='relp4BMcD.outp'
+      OPEN(7,FILE=OUFIL)
+      OPEN(5,FILE='fort.5')
+      REWIND(5)
+      READ(5,*)INDIROnG
+      READ(5,*)INDIR
+      READ(5,*)INDIR2
+      READ(5,*)INDIRnoEGU
+      CLOSE(5)
+C Get release point indexing - relates each II in main emis file (1 to NRECMX) to a release point
+C through variable NRPTRK(NRECMX)
+      CALL RLPTNDX
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      CLOSE(7)
+      CLOSE(6)
+      STOP9999
+      END
+      SUBROUTINE RLPTNDX
+C This subroutine indexes each of the NRECMX records in the point emission file (nei99_v3_data.txt)
+C to a release point in the inventory. 2 files are generated here Relpointinfo.txt, Relpointidex.bin.
+C Relpointinfo.txt gives location, type, and 5 stack parameters for the IRLPMX distinct release points.
+C Relpointidex.bin is a binary file, first record (integer) gives the number of remaining records, and
+C following records (shoud be NRECMX of them) are index numbers pointing to line number of the
+C Relpointinfo.txt file of all points in nei99_v3_data.txt within the EPA 4x4km domain having emissions.
+C  Fugitive emissions are indexed to 4x4km horizontal grids,with lat, lons  output as grid centers in
+C Relpointinfo.txt. All other stack types (vertical, horizontal, gooseneck, raincap) maintain give lat lons.
+C Because the determination of distinct release points is a little time intensive, the data generated in
+C this routine (release point indexes NRPTRK(NRECMX) values) are saved, and a check is done to see if
+C the saved file exists.  If not - expect a about 10 min of processing to sort out the indexing.
+C 12/3/08 modified to make pointSCClist.txt file - needed in second pass of point4k.sub .
+      include 'commons/parame.h'
+      include 'commons/names.h'
+      include 'commons/pvars.h'
+      include 'commons/relpoin.h'
+      include 'commons/sccidex.h'
+      INTEGER ITMPRSV(IRLPMX)
+      INTEGER IXLPRSV(IRLPMX),IYLPRSV(IRLPMX),ICOPRSV(IRLPMX)
+      DIMENSION HTPRSV(IRLPMX),XLTPRSV(IRLPMX),XLNPRSV(IRLPMX),
+     -FLWRPSV(IRLPMX),ESV(IRLPMX,IPRI),ECO2SV(IRLPMX),
+     -EVCPSV(5,IRLPMX) ! 5 VCP classes, 1=degrease,2=coating_1,3=adhesive,4=coating_2,5=print_publish(ink?)
+      DIMENSION DIAMSV(IRLPMX),VELSV(IRLPMX),FUGHTSV(IRLPMX)
+      INTEGER ISRPTYP(IRLPMX),IRTYPE(6) !counts records for each release emission type:
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      INTEGER IHEAD,IOSIRSV(IRLPMX),ICEMFLG(IRLPMX),ICOCESV(ICEMMX)
+      CHARACTER*15 CSITESV(ICEMMX)
+      CHARACTER*8 CUNITSV(ICEMMX),CERPTSV(ICEMMX),CPROCSV(ICEMMX)
+      CHARACTER*10 COSIRB,COSIRBSV(IRLPMX)  ! COSIRB is Boiler ID for OSIR coding
+C fugitive,stack,horizontal,goose-neck,capped,down-facing
+      CHARACTER*1 C1DUM,CHAR1
+      CHARACTER*6 C6DUM
+      CHARACTER*8 CTE2,CTE3
+      CHARACTER*15 CTES
+      CHARACTER*80 CDUM
+      CHARACTER*5 CCOUN
+      CHARACTER*10 CSCC
+      CHARACTER*8 CIRTYP
+      CHARACTER*4 CYEAR
+      DATA IRELP/0/
+      DATA ICAPT,II/0,0/
+      DATA XMPERF/.3048/
+      LOGICAL EXISTS
+Cnodo INQUIRE(FILE='/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202103/Relpointidex.bin',EXIST=
+Cnodo-EXISTS)
+Cnodo IF(EXISTS)THEN
+Cnodo OPEN(10,FILE='/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202103/Relpointidex.bin',FORM=
+Cnodo-'UNFORMATTED')
+Cnodo READ(10)INRPN
+Cnodo   IF(INRPN.NE.NRECMX)THEN
+Cnodo   WRITE(7,*)'RLPTNDX, input recnum= ',INRPN,' not= NRECMX'
+Cnodo   STOP888
+Cnodo   ENDIF
+Cnodo READ(10)NRPTRK
+Cnodo CLOSE(10)
+Cnodo WRITE(*,*)' release point index file read in RLPTNDX, all OK'
+Cnodo WRITE(7,*)' release point index file read in RLPTNDX, all OK'
+Cnodo RETURN
+Cnodo ENDIF
+C If you made it here, release point indexing files don't exist
+      WRITE(*,*)'No release pnt index file found in RLPTNDX, writing it'
+      WRITE(7,*)'No release pnt index file found in RLPTNDX, writing it'
+C     OPEN(8,FILE=INDIROnG)
+      OPEN(8,FILE=INDIR2)
+      OPEN(9,FILE='Relpointinfo_4BMcD.txt')
+      OPEN(10,FILE='Relpoint4IPM_4BMcD.txt')
+      OPEN(11,FILE='pointSCClist_4BMcD.txt')
+      ICNSCC=0
+      IFILIN=1
+      II=0
+      ESV=0.
+      ECO2SV=0.
+      EVCPSV=0.
+      COSIRBSV=''
+      IOSIRSV=0
+      ICEMFLG=0
+      ICEMFLAG=0 ! Equals 1 if this is from the EGU-CEM file 8/8/20
+ 88   CONTINUE
+C Determine number of header lines, rewind file, read to first line of data
+      IHEAD=0
+ 98   CONTINUE
+      READ(8,'(1A)')CHAR1
+      IF(CHAR1.NE.'#')GOTO 99
+      IHEAD=IHEAD+1
+      GOTO 98
+ 99   CONTINUE
+      IHEAD=IHEAD+1
+      REWIND(8)
+      WRITE(7,*)'IFILIN,IHEAD= ',IFILIN,IHEAD
+      CALL FLUSH(7)
+      DO I=1,IHEAD
+      READ(8,'(1X)')
+      ENDDO
+C You are now at beginning of first line.
+ 9    CONTINUE
+      SITEDESC=''
+      IENDMNDY=0
+      FUGHT=0.
+      STKHGT=0.
+      STKDIAM=0.
+      ISTKTMP=0
+      STKFLOW=0.
+      STKVEL=0.
+      XLON=0.
+      XLAT=0.
+      IOSIR=-99
+      COSIRB=''
+      CYEAR=''
+      ORISID=''
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      READ(8,*,END=10,ERR=11)CDUM,CCOUN,CDUM,SITEID,UNITID,ERPTID,PROCID
+     -,CDUM,CDUM,CDUM,CDUM,CSCC,POLCODE,ANN_EMS,ADUM,SITEDESC,CIRTYP,
+     -STKHGT,STKDIAM,ISTKTMP,STKFLOW,STKVEL,CDUM,XLON,XLAT,CDUM,CDUM,
+     -ADUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,
+     -CDUM,ORISID,COSIRB,CDUM,CYEAR,CDUM,FUGHT
+C     WRITE(9,55)ISTATE,ICCCN,SITEID,ERPTID,UNITID,PROCID,IRTYP,STKHGT,
+C    -STKDIAM,STKTMP,STKVEL,STKFLOW,XLON,XLAT,FUGHT,IOSIR,COSIRB
+Cne14 READ(8,*,END=10,ERR=11)CDUM,CCOUN,CDUM,SITEID,UNITID,ERPTID,PROCID
+Cne14-,CDUM,CDUM,CDUM,CDUM,CSCC,POLCODE,ANN_EMS,ADUM,SITEDESC,CIRTYP,
+Cne14-STKHGT,STKDIAM,ISTKTMP,STKFLOW,STKVEL,CDUM,XLON,XLAT,CDUM,CDUM,
+Cne14-ADUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,
+Cne14-CDUM,ORISID,COSIRB,CDUM,CYEAR,CDUM,FUGHT
+      READ(CCOUN,'(I)')ICOUN
+      READ(CIRTYP,'(I)',ERR=11)IRTYP
+      READ(CSCC,'(I)')ISCC
+      WRITE(7,*)'II=',II,' ORISID=X',ORISID,'X'
+      CALL FLUSH(7)
+      IF(trim(ORISID).NE.'')THEN
+      READ(ORISID,'(I)',ERR=1119)IOSIR
+      ELSE
+      IOSIR=-99
+      ENDIF
+      GOTO 1120
+ 1119 CONTINUE
+      WRITE(7,*)'Bad IOSIR,ORISID=',ORISID,'X'
+      STOP'777'
+ 1120 CONTINUE
+C     READ(ORISID,'(I)')IOSIR
+C point VCP sources to track
+      IVCP=0
+      IF(ISCC.GE.40100201.AND.ISCC.LE.40100399)IVCP=1 ! Industrial degreasing
+      IF(ISCC.GE.40200101.AND.ISCC.LE.40200601)IVCP=2 ! Industrial coatings (subset 1)
+      IF(ISCC.GE.40200701.AND.ISCC.LE.40200712)IVCP=3 ! Industrial adhesives
+      IF(ISCC.GE.40200801.AND.ISCC.LE.40299998)IVCP=4 ! Industrial coatings (subset 2)
+      IF(ISCC.GE.40500101.AND.ISCC.LE.40588801)IVCP=5 ! Print publishing
+      READ(CYEAR,'(I)')IYEAR
+      ISTRMNDY=IYEAR*10000+101   ! Force Annual emissions
+      IENDMNDY=IYEAR*10000+1231   ! Force Annual emissions
+C     WRITE(6,*)'CCOUN=',CCOUN
+C     WRITE(6,*)'ICOUN=',ICOUN
+C     WRITE(6,*)'SITEID=',SITEID
+C     WRITE(6,*)'UNITID=',UNITID
+C     WRITE(6,*)'ERPTID=',ERPTID
+C     WRITE(6,*)'PROCID=',PROCID
+C     WRITE(6,*)'CSCC=',CSCC
+C     WRITE(6,*)'ISCC=',ISCC
+C     WRITE(6,*)'POLCODE=',POLCODE
+C     WRITE(6,*)'ANN_EMS=',ANN_EMS
+C     WRITE(6,*)'SITEDESC=',SITEDESC
+C     WRITE(6,*)'CIRTYP=',CIRTYP
+C     WRITE(6,*)'IRTYP=',IRTYP
+C     WRITE(6,*)'IOSIR=',IOSIR
+C     WRITE(6,*)'COSIRB=',COSIRB
+C     WRITE(6,*)'CYEAR=',CYEAR
+C     WRITE(6,*)'IYEAR=',IYEAR
+C     CALL FLUSH(6)
+C     CALL FLUSH(7)
+C     ISTOP=1
+C     IF(ISTOP.EQ.1)STOP'888'
+C     READ(8,*,END=10,ERR=11)ICOUN,SITEID,ERPTID,UNITID,PROCID,
+C    -SITEDESC,ISCC,IRTYP,IDUM,ISTKHGT,STKDIAM,ISTKTMP,STKFLOW,STKVEL,
+C    -IDUM,C6DUM,C6DUM,C1DUM,XLON,XLAT,IDUM,POLCODE,ANN_EMS,ADUM,ADUM,
+C    -ADUM,ADUM,ADUM,CDUM,IOSIR,COSIRB,C1DUM,CDUM,IDUM,CDUM,IYEAR,IDUM,
+C    -IDUM,IFUGHT,CDUM,IDUM,IDUM,CDUM,IDUM,IDUM,C1DUM,IDUM,IDUM,CDUM,
+C    -ISTRMNDY,IENDMNDY,WINTHRU,SPRTHRU,SUMTHRU,FALTHRU
+C Some IRTYPs are 99, 11/12/08, set to 2
+      STKFCEM=STKFLOW
+      IF(IRTYP.GT.6)IRTYP=2
+      IF(IRTYP.EQ.1.OR.IRTYP.EQ.6)STKHGT=FUGHT
+      ISTATE=ICOUN/1000
+      ICCCN=ICOUN-ISTATE*1000
+C     ICOUN=1000*ISTATE+ICCCN
+      II=II+1
+C     IF(II.LE.100)THEN
+      IF(II.GT.5530.AND.II.LT.5630)THEN
+      CALL PRNTREC(II,7)
+      ELSEIF(IENDMNDY.LE.IYEAR*10000)THEN
+      CALL PRNTREC(II,7)
+      STOP889
+      ENDIF
+C Ignore Blank Lines
+      IF(ICOUN.EQ.0)GOTO 9
+C     EMISN=0.
+C     DO I=1,7
+C     EMISN=EMISN+AMAX1(0.,EMISN7(I))
+C     ENDDO
+C     IF(EMISN.LE.0.)GOTO 9
+C Skip over Alaska, Hawaii, Puerto Rico (72) and Virgin Islands (78), Guam (66)
+C     IF(ISTATE.EQ.2.OR.ISTATE.EQ.15.OR.ISTATE.GT.56)GOTO 9
+C Tribal land has ISTATE=88, dont toss these out
+      IF(ISTATE.EQ.2.OR.ISTATE.EQ.15.OR.ISTATE.EQ.72.OR.ISTATE.EQ.78.
+     -OR.ISTATE.EQ.66)GOTO 9
+C 1/21/04 All records should have LAT LON coordinates in nei99 version 3
+C Get coordinates of point location in Matrix I,J
+      CALL LAMBC(XLAT,XLON,XI,YJ)
+      IMTX=INT(XI)
+      JMTX=INT(YJ)
+      IF(IMTX.LT.1.OR.IMTX.GT.IX.OR.JMTX.LT.1.OR.JMTX.GT.JX)THEN
+      WRITE(*,*)' Bad location I,J,II = ',IMTX,JMTX,II
+      WRITE(7,*)' Bad location I,J,II = ',IMTX,JMTX,II
+      CALL PRNTREC(II,7)
+C     STOP777
+      GOTO 9
+      ENDIF
+      ICAPT=ICAPT+1
+C Keep track of release points, processes get lumped
+C CRELP keeps track of sites by ICOUN,SITEID,ERPTID - Used for releae pnt emissions
+      IF(IRELP.EQ.0)GOTO 80
+      DO JJ=1,IRELP
+      IF(ICOUN.EQ.ICOPRSV(JJ))THEN
+      IF(IRTYP.EQ.ISRPTYP(JJ))THEN
+      IF(IMTX.EQ.IXLPRSV(JJ).AND.JMTX.EQ.IYLPRSV(JJ))THEN
+      IF(STKHGT.EQ.HTPRSV(JJ).AND.ISTKTMP.EQ.ITMPRSV(JJ).AND.
+     -STKFLOW.EQ.FLWRPSV(JJ))THEN
+      NRPTRK(II)=JJ
+      DO KK=1,IPRI
+      IF(trim(POLCODE).EQ.SPECNAM(KK))ESV(JJ,KK)=ESV(JJ,KK)+ANN_EMS
+      ENDDO
+      IF(trim(POLCODE).EQ.'CO2')ECO2SV(JJ)=ECO2SV(JJ)+ANN_EMS
+       IF(trim(POLCODE).EQ.'VOC'.AND.IVCP.GT.0)THEN
+       EVCPSV(IVCP,JJ)=EVCPSV(IVCP,JJ)+ANN_EMS
+       ENDIF
+      GOTO 89
+      ENDIF
+      ENDIF
+      ENDIF
+      ENDIF
+      ENDDO
+ 80   CONTINUE
+      IRELP=IRELP+1
+      IF(IRELP.GT.IRLPMX)THEN
+      WRITE(*,*)'IRLPMX= ',IRLPMX,' too small ,stopping'
+      WRITE(*,*)'II,NRECMX=',II,NRECMX
+      WRITE(7,*)'IRLPMX= ',IRLPMX,' too small ,stopping'
+      WRITE(7,*)'II,NRECMX=',II,NRECMX
+      CALL FLUSH(7)
+      CALL FLUSH(6)
+      STOP
+      ENDIF
+      NRPTRK(II)=IRELP
+      ISRPTYP(IRELP)=IRTYP
+      HTPRSV(IRELP)=STKHGT
+      ITMPRSV(IRELP)=ISTKTMP
+      IXLPRSV(IRELP)=IMTX
+      IYLPRSV(IRELP)=JMTX
+      ICOPRSV(IRELP)=ICOUN
+      XLTPRSV(IRELP)=XLAT
+      XLNPRSV(IRELP)=XLON
+      FLWRPSV(IRELP)=STKFLOW
+      DIAMSV(IRELP)=STKDIAM
+      VELSV(IRELP)=STKVEL
+      FUGHTSV(IRELP)=FUGHT
+      IOSIRSV(IRELP)=IOSIR
+      ICEMFLG(IRELP)=ICEMFLAG ! Equals 1 if this is from the EGU-CEM file 8/8/20
+      COSIRBSV(IRELP)=COSIRB  ! COSIRB is Boiler ID for OSIR coding
+      DO KK=1,IPRI
+      IF(trim(POLCODE).EQ.SPECNAM(KK))ESV(IRELP,KK)=ESV(IRELP,KK)+ANN_EMS
+      ENDDO
+      IF(trim(POLCODE).EQ.'CO2')ECO2SV(IRELP)=ECO2SV(IRELP)+ANN_EMS
+       IF(trim(POLCODE).EQ.'VOC'.AND.IVCP.GT.0)THEN
+       EVCPSV(IVCP,IRELP)=EVCPSV(IVCP,IRELP)+ANN_EMS
+       ENDIF
+      IF(IRTYP.EQ.1.OR.IRTYP.EQ.6)THEN
+      CALL MAPCF(FLOAT(IMTX)+.5,FLOAT(JMTX)+.5,XLAT,XLON)
+      ENDIF
+C Write STKHGT,STKDIAM in meters, STKTMP in deg K, STKVEL in m/s and STKFLOW in m^3/s
+C FUGHT in meters
+      STKHGT=STKHGT*XMPERF
+      STKDIAM=STKDIAM*XMPERF
+      STKTMP=0.
+      IF(ISTKTMP.GT.0.)STKTMP=273.15+5.*FLOAT(ISTKTMP-32)/9.
+      STKVEL=STKVEL*XMPERF
+      STKFLOW=STKFLOW*XMPERF**3
+      FUGHT=FUGHT*XMPERF
+      IF(ABS(FUGHT).GT.999.)FUGHT=0.
+      WRITE(9,55)ISTATE,ICCCN,SITEID,ERPTID,UNITID,PROCID,IRTYP,STKHGT,
+     -STKDIAM,STKTMP,STKVEL,STKFLOW,XLON,XLAT,FUGHT,IOSIR,COSIRB
+ 55   FORMAT(I2.2,I3.3,A15,3A8,1X,I2,1X,F10.3,F10.3,F10.2,F10.3,F10.4
+     -,F11.5,F10.5,F10.3,I7,1X,A)
+ 89   CONTINUE
+      IF(ICNSCC.EQ.0)GOTO 70
+      DO JJ=1,ICNSCC
+      IF(ISCC.EQ.ISCCNUM(JJ))THEN
+      GOTO 79
+      ENDIF
+      ENDDO
+ 70   CONTINUE
+      ICNSCC=ICNSCC+1
+      IF(ICNSCC.GT.ISCCMX)THEN
+      WRITE(*,*)'ISCCMX= ',ISCCMX,' in RLPTNDX too small ,stopping'
+      WRITE(*,*)'II,NRECMX=',II,NRECMX
+      STOP
+      ENDIF
+      ISCCNUM(ICNSCC)=ISCC
+      WRITE(11,'(I10.10)')ISCC
+      CALL FLUSH(11)
+ 79   CONTINUE
+      IF(ICEMP.EQ.0)GOTO 90
+      DO JJ=1,ICEMP
+      IF(ICOUN.EQ.ICOCESV(JJ))THEN
+C     IF(IOSIR.EQ.IOSIRSV(JJ))THEN
+      LREC=LNBLNK(SITEID)
+      CTES=CSITESV(JJ)
+      LREL=MAX(1,LNBLNK(CTES))
+      IF(SITEID(1:LREC).EQ.CTES(1:LREL))THEN
+      LREC=LNBLNK(ERPTID)
+      CTES=CERPTSV(JJ)
+      LREL=MAX(1,LNBLNK(CTES))
+      LRE2=LNBLNK(UNITID)
+      CTE2=CUNITSV(JJ)
+      LRL2=MAX(1,LNBLNK(CTE2))
+      LRE3=LNBLNK(PROCID)
+      CTE3=CPROCSV(JJ)
+      LRL3=MAX(1,LNBLNK(CTE3))
+      IF(ERPTID(1:LREC).EQ.CTES(1:LREL).AND.UNITID(1:LRE2).EQ.
+     -CTE2(1:LRL2).AND.PROCID(1:LRE3).EQ.CTE3(1:LRL3))THEN
+      GOTO 9
+      ENDIF
+      ENDIF
+C     ENDIF
+      ENDIF
+      ENDDO
+ 90   CONTINUE
+      ICEMP=ICEMP+1
+      IF(ICEMP.GT.ICEMMX)THEN
+      WRITE(*,*)'ICEMMX= ',ICEMMX,' too small ,stopping'
+      WRITE(*,*)'II,NRECMX=',II,NRECMX
+      STOP
+      ENDIF
+      ICOCESV(ICEMP)=ICOUN
+      CSITESV(ICEMP)=SITEID
+      CUNITSV(ICEMP)=UNITID
+      CERPTSV(ICEMP)=ERPTID
+      CPROCSV(ICEMP)=PROCID
+C     IOSIRSV(ICEMP)=IOSIR
+      WRITE(10,95)ISTATE,ICCCN,SITEID,ERPTID,UNITID,PROCID,NRPTRK(II),
+     -STKFCEM,IOSIR,COSIRB
+ 95   FORMAT(I2.2,I3.3,A15,3A6,1X,I6,1X,F10.0,1X,I7,1X,A)
+      GOTO 9
+ 11   CONTINUE
+      WRITE(7,*)'Error reading point emission file in RLPTNDX, stopping'
+      CALL PRNTREC(II,7)
+      STOP888
+ 10   CONTINUE
+      CLOSE(8)
+C There are 2 files (IMP and nonIMP) that need to be read in
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(7,*)'IFILIN=',IFILIN,',Totl records= ',II,' Totl captured= '
+     -,ICAPT
+      WRITE(*,*)'IFILIN=',IFILIN,',Totl records= ',II,' Totl captured= '
+     -,ICAPT
+      WRITE(7,*)' Totl release points= ',IRELP
+      WRITE(*,*)' Totl release points= ',IRELP
+      WRITE(7,*)' Totl IPM release points= ',ICEMP
+      WRITE(*,*)' Totl IPM release points= ',ICEMP
+      CALL FLUSH(7)
+C 8/7/20 only do CEMS file
+      IF(IFILIN.NE.4)THEN
+      IFILIN=IFILIN+1
+      ICEMFLAG=0
+      IF(IFILIN.EQ.2)OPEN(8,FILE=INDIRnoEGU)
+      IF(IFILIN.EQ.3)THEN ! This is specific for EGU file, set ICEMFLAG
+      OPEN(8,FILE=INDIR)
+      ICEMFLAG=1
+      ENDIF
+      IF(IFILIN.EQ.4)OPEN(8,FILE=INDIROnG)
+      REWIND(8)
+      GOTO 88
+      ENDIF
+      CLOSE(9)
+      CLOSE(10)
+      CLOSE(11)
+      OPEN(10,FILE='Relpointidex.bin',FORM='UNFORMATTED')
+      WRITE(10)II
+      WRITE(10)NRPTRK
+      CLOSE(10)
+      WRITE(7,*)' RLPTNDX Totl records= ',II,' Totl captured= ',ICAPT
+      WRITE(*,*)' RLPTNDX Totl records= ',II,' Totl captured= ',ICAPT
+      WRITE(7,*)' RLPTNDX Totl release points= ',IRELP
+      WRITE(*,*)' RLPTNDX Totl release points= ',IRELP
+      WRITE(7,*)' RLPTNDX IPMfile Totl records= ',ICEMP
+      WRITE(*,*)' RLPTNDX IPMfile Totl records= ',ICEMP
+      WRITE(7,*)' RLPTNDX SCCpoint Totl records= ',ICNSCC
+      WRITE(*,*)' RLPTNDX SCCpoint Totl records= ',ICNSCC
+C     OPEN(9,FILE='Relpointinfo_4BMcD_NOXSO2CO2.txt')
+C     OPEN(9,FILE='Relpointinfo_NOXSO2CO2VCP.txt')
+      OPEN(9,FILE='Relpointinfo_Criteria_n_VCP.txt')
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(9,'(A,6A,A)')'ST_COU,CEM_FLG,',
+     -(trim(SPECNAM(L))//'_tonpyr,',L=1,IPRI-1),
+     -'CO2_tonpyr,VOC_tonperyr,VCP1,VCP2,VCP3,VCP4,VCP5,ITYPE,STKht_m,ST
+     -Kdiam_m,STKtemp_K,STKve_mps,STKflw_m3ps,Lon_deg,Lat_deg,FUGht_m,OS
+     -IR_ID,OSIR_boilrID'
+      DO I=1,IRELP
+      IF(ISRPTYP(I).NE.0)IRTYPE(ISRPTYP(I))=IRTYPE(ISRPTYP(I))+1
+C     INTEGER ITMPRSV(IRLPMX)
+C     INTEGER IXLPRSV(IRLPMX),IYLPRSV(IRLPMX),ICOPRSV(IRLPMX)
+C     DIMENSION HTPRSV(IRLPMX),XLTPRSV(IRLPMX),XLNPRSV(IRLPMX),
+C    -FLWRPSV(IRLPMX),ENOXSV(IRLPMX),ESO2(IRLPMX),ECO2(IRLPMX)
+C     DIMENSION DIAMSV(IRLPMX),VELSV(IRLPMX),FUGHTSV(IRLPMX),
+C     INTEGER ISRPTYP(IRLPMX),IRTYPE(6) !counts records for each release emission type:
+C     INTEGER IHEAD,IOSIRSV(IRLPMX),ICEMFLG(IRLPMX),ICOCESV(ICEMMX)
+C     CHARACTER*15 CSITESV(ICEMMX)
+C     CHARACTER*8 CUNITSV(ICEMMX),CERPTSV(ICEMMX),CPROCSV(ICEMMX)
+C     CHARACTER*15 COSIRBSV(IRLPMX)
+C Write STKHGT,STKDIAM in meters, STKTMP in deg K, STKVEL in m/s and STKFLOW in m^3/s
+C FUGHT in meters
+      STKHGT=HTPRSV(I)*XMPERF
+      STKDIAM=DIAMSV(I)*XMPERF
+      STKTMP=0.
+      IF(ITMPRSV(I).GT.0.)STKTMP=273.15+5.*FLOAT(ITMPRSV(I)-32)/9.
+      STKVEL=VELSV(I)*XMPERF
+      STKFLOW=FLWRPSV(I)*XMPERF**3
+      FUGHT=FUGHTSV(I)*XMPERF
+      IF(ABS(FUGHT).GT.999.)FUGHT=0.
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(9,57)ICOPRSV(I),ICEMFLG(I),(ESV(I,KK),KK=1,IPRI-1),
+     -ECO2SV(I),ESV(I,IPRI),
+     -(EVCPSV(KK,I),KK=1,5),ISRPTYP(I),STKHGT,STKDIAM,STKTMP,STKV
+     -EL,STKFLOW,XLNPRSV(I),XLTPRSV(I),FUGHT,IOSIRSV(I),COSIRBSV(I)
+      ENDDO
+ 57   FORMAT(I5,I2,1P,13E10.3,1X,I2,1X,0P,F10.3,F10.3,F10.2,F10.3,F10.4
+     -,F11.5,F10.5,F10.3,I7,1X,A)
+      CLOSE(9)
+      DO I=1,6
+      WRITE(*,*)' Release Point TYPE(',I,')= ',IRTYPE(I)
+      WRITE(7,*)' Release Point TYPE(',I,')= ',IRTYPE(I)
+      ENDDO
+      ISTOP=1
+      IF(ISTOP.EQ.1)STOP999
+      RETURN
+      END
+      SUBROUTINE MAPSMP(FLD,IYY,JXX,IA,IB,INY,JA,JB,JNX,CONST,
+     1                  ICHOS,NAME)
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C                                                                     C
+C                                                                     C
+C     THIS SUBROUTINE PRINTS A SAMPLE OF A TWO-DIMENSIONAL DATA FIELD C
+C     ON THE LINE PRINTER WITH 5 SIGNIFICANT DIGITS.                  C
+C                                                                     C
+C     *** NOTE *** THE VALUES OF FLD(I,J) SHOULD BE LIMITED WITHIN    C
+C                  1.E30 --- 1.E-30. IF THE VALUE OUTSIDE THIS        C
+C                  RANGE IS DESIRED, THE PROGRAM SHOULD BE CHANGED    C
+C                  ACCORDINGLY (IN DO LOOP 20).                       C
+C                                                                     C
+C                                                                     C
+C     FLD    : A TWO-DIMENSIONAL ARRAY TO HOLD THE DATA FIELD TO BE   C
+C              SAMPLED AND PRINTED. FLD COULD BE A HORIZONTAL SLICE,  C
+C              FLD(I,J), OR A VERTICAL SLICE FLD(K,I) OR FLD(K,J).    C
+C                                                                     C
+C     IYY    : THE FIRST DIMENSION OF FLD.                            C
+C              FOR THE HORIZONTAL SLICE, IYY IS THE DIMENSION IN THE  C
+C                                        Y DIRECTION.                 C
+C              FOR THE VERTICAL SLICE, IYY IS THE DIMENSION IN THE    C
+C                                      Z DIRECTION.                   C
+C                                                                     C
+C     JXX    : THE SECOND DIMENSION OF FLD.                           C
+C              FOR THE HORIZONTAL SLICE, JXX IS THE DIMENSION IN THE  C
+C                                        X DIRECTION.                 C
+C              FOR THE VERTICAL SLICE, JXX IS THE DIMENSION IN EITHER C
+C                                      THE X OR Y DIRECTION.          C
+C                                                                     C
+C     IA     : INITIAL SAMPLING POINT IN THE FIRST DIMENSION.         C
+C                                                                     C
+C     IB     : FINAL SAMPLING POINT IN THE FIRST DIMENSION.           C
+C                                                                     C
+C     INY    : SAMPLING INTERVAL IN THE FIRST DIMENSION.              C
+C                                                                     C
+C     JA     : INITIAL SAMPLING POINT IN THE SECOND DIMENSION.        C
+C                                                                     C
+C     JB     : FINAL SAMPLING POINT IN THE SECOND DIMENSION.          C
+C                                                                     C
+C     JNX    : SAMPLING INTERVAL IN THE SECOND DIMENSION.             C
+C                                                                     C
+C     CONST  : CONSTANT USED TO BE SUBTRACTED FROM FLD.               C
+C                                                                     C
+C     ICHOS > 0 : FOR HORIZONTAL ARRAY FLD(Y,X)                       C
+C           < 0 : FOR VERTICAL CROSS SECTION FLD(Z,Y) OR FLD(Z,X)     C
+C                                                                     C
+C                                                                     C
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C
+      DIMENSION FLD(JXX,IYY)
+      CHARACTER*21 IFMT1,IFMT2
+      CHARACTER*10 NAME
+      DIMENSION JM(60)
+      DATA KSIGT/5/ 
+      N=7 
+      K1=KSIGT+2
+      K2=124/K1
+      K3=KSIGT/2-1
+      K4=KSIGT-K3-1
+C
+      DO 10 I=IA,IB,INY
+      DO 10 J=JA,JB,JNX
+   10 FLD(J,I)=FLD(J,I)-CONST 
+C
+      FLDMAX=FLD(JA,IA)
+      FLDMIN=FLD(JA,IA)
+      FLDU=10.**KSIGT
+      FLDL=10.**(KSIGT-1)
+      DO 20 J=JA,JB,JNX
+      DO 20 I=IA,IB,INY
+      IF(ABS(FLD(J,I)) .GT. 1.E30 .OR. ABS(FLD(J,I)) .LT. 1.E-30)
+     1  GO TO 20
+      IF (ABS(FLD(J,I)) .GT. FLDMAX) FLDMAX=ABS(FLD(J,I))
+      IF (ABS(FLD(J,I)) .LT. FLDMIN) FLDMIN=ABS(FLD(J,I))
+   20 CONTINUE
+      IF (FLDMAX .EQ. FLDMIN) GO TO 150 
+      IEXP=0
+      DO 50 N1=1,500
+      IF(FLDMAX .GE. FLDU) GO TO 30
+      IF(FLDMAX .LT. FLDL) GO TO 40
+      IF(FLDMAX .LT. FLDU .AND. FLDMAX .GE. FLDL) GO TO 60
+   30 FLDMAX=FLDMAX/10.
+      IEXP=IEXP-1
+      GO TO 50
+   40 FLDMAX=FLDMAX*10.
+      IEXP=IEXP+1
+   50 CONTINUE
+   60 CONTINUE
+      DO 70 I=IA,IB,INY
+      DO 70 J=JA,JB,JNX
+   70 FLD(J,I)=FLD(J,I)*10.**IEXP
+      JX=JB-JA+1
+      IY=IB-IA+1
+      JN=K2*JNX
+      JN1=JN-1
+      WRITE(N,80) NAME,IEXP
+   80 FORMAT(////' DIURN AVERAGE EMIS ',A10,'  ,SCALED BY  1.E',I3)
+      DO 130 J1=JA,JB,JN
+      JL=MIN0(J1+JN1,JB)
+      JT=JL-J1+1
+      JTN=(JT-1)/JNX+1
+      J2N=0
+      DO 90 J2=1,JT,JNX
+      J2N=J2N+1
+   90 JM(J2N)=J1+J2-1
+      WRITE(IFMT1,100) JTN,K4,K3
+  100 FORMAT(5H(/5X,,I2,1H(,I2,5HX,I3,,I2,4HX)/))
+      WRITE(N,IFMT1) (JM(JJ),JJ=1,J2N)
+      WRITE(IFMT2,110) JTN,K1
+  110 FORMAT(4H(I3,,I2,1HF,I2,9H.0,1X,I3))
+      IT=(IY-1)/INY 
+      IR=IY-IT*INY
+      DO 120 I2=IA,IB,INY
+      I1=IB+IA-I2-IR+1
+      IF (ICHOS .LT. 0) I1=I2 
+      WRITE(N,IFMT2) I1,(FLD(J3,I1),J3=J1,JL,JNX),I1
+  120 CONTINUE
+  130 WRITE(N,IFMT1) (JM(JJ),JJ=1,J2N)
+      DO 140 I=IA,IB,INY
+      DO 140 J=JA,JB,JNX
+  140 FLD(J,I)=FLD(J,I)/(10.**IEXP)+CONST
+      GO TO 180
+C
+  150 CONTINUE
+      DO 160 I=IA,IB,INY
+      DO 160 J=JA,JB,JNX
+  160 FLD(J,I)=FLD(J,I)+CONST 
+      WRITE(N,170) NAME,FLDMAX
+  170 FORMAT(/'   ALL OF THE VALUES OF ',A10,' ARE EQUAL TO ',E15.5)
+  180 CONTINUE
+      RETURN
+      END
+      SUBROUTINE LAMBC (XLAT,XLON,XI,YJ)
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C                                                                     C
+C                                                                     C
+C     THIS SUBROUTINE COMPUTES THE MODEL INDEXES OF A POINT FROM      C
+C     LATITUDE AND LONGITUDE.                                         C
+C                                                                     C
+C     INPUT :                                                         C
+C                                                                     C
+C        XLAT : LATITUDE OF THE POINT.                                C
+C                                                                     C
+C        XLON : LONGITUDE OF THE POINT.                               C
+C                                                                     C
+C     OUTPUT :                                                        C
+C                                                                     C
+C        XI : X COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C        YJ : Y COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C     INFORMATION NEEDED:                                             C
+C                                                                     C
+C        XLATC : LATITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.    C
+C                                                                     C
+C        XLONC : LONGITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.   C
+C                                                                     C
+C        DX    : GRID SIZE IN METERS.                                 C
+C                                                                     C
+C        IL    : X DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        JL    : Y DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        PLM1  : LATITUDE OF THE LOW-LEFT CORNER OF THE MAP.          C
+C                                                                     C
+C        PLM2  : LONGITUDE OF THE LOW-LEFT CORNER OF THE MAP.         C
+C                                                                     C
+C        PLM3  : LATITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.       C
+C                                                                     C
+C        PLM4  : LONGITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.      C
+C                                                                     C
+C        IPROJ : MAP PROJECTION,                                      C
+C                FOR LAMBERT CONFORMAL PROJECTION ONLY                C
+C                                                                     C
+C     NOTE ***                                                        C
+C                                                                     C
+C     A WEST LONGITUDE IS GIVEN BY A NEGATIVE NUMBER; POSITIVE        C
+C     ANGLES DENOTE EAST LONGITUDE.                                   C
+C                                                                     C
+C     A NORTH LATITUDE IS GIVEN BY A POSITIVE NUMBER, AND A NEGATIVE  C
+C     NUMBER FOR A SOUTH LATITUDE.                                    C
+C                                                                     C
+C                                                                     C
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C
+      include 'commons/mappar.h'
+C
+C-----------------------------------------------------------------------
+      DATA POLE,CONV / 90.,57.29578 /
+      DATA A,PH1D / 6370.997,30. /
+      DATA ICLAMB / 0 /
+      DATA XN / 1.000 /
+      SAVE
+C
+      IF (ICLAMB.EQ.0) THEN
+         DS = DXBIGDO/1000.
+      FRTY5D=ATAN(1.)
+      CONV=45./FRTY5D
+C  9/5/03 Modified for more general Lambert Conformal with 2 standard parallels,CLAT1,CLAT2
+      IF (IPROJ.EQ.1)THEN
+C     XN = 0.716 IF CLAT1=30 deg, CLAT2=60 deg
+C     RLAT1=(90.-CLAT1)/CONV
+C     RLAT2=(90.-CLAT2)/CONV
+C     XN=ALOG(SIN(RLAT1)/SIN(RLAT2))/ALOG(TAN(.5*RLAT1)/TAN(.5*RLAT2))
+      RLAT1=CLAT1/CONV
+      RLAT2=CLAT2/CONV
+      XN=ALOG(COS(RLAT1)/COS(RLAT2))/ALOG(TAN(FRTY5D+.5*RLAT2)/
+     -TAN(FRTY5D+.5*RLAT1))
+      PH1D=CLAT1
+      ENDIF
+C     WRITE(7,*)'LAMBC,IPROJ, XN,PH1D= ',IPROJ,XN,PH1D
+C        * COMPUTE LONGITUDE OF X AXIS (C1), ASSUMING ORIGIN AT NORTH POLE.
+         C1 = -XLONC-POLE/XN
+C        * COMPUTE DISTANCE BETWEEN NORTH POLE AND CENTER OF DOMAIN.
+         PH1R = PH1D/CONV
+         CELL = A*SIN(PH1R)/XN
+         PHCR = (POLE-XLATC)/CONV
+         CELL2 = CELL/(TAN(PH1R/2.)**XN)
+         C2 =  CELL2 * (TAN(PHCR/2.)**XN)
+      ENDIF
+C
+C     * COMPUTE DISTANCE BETWEEN POINT AND NORTH POLE.
+      XXL = XN*(XLON+C1)/CONV 
+      PHI2 = (POLE-XLAT)/CONV 
+      RR = CELL2 *TAN(PHI2/2.)**XN
+      XX = RR*COS(XXL)
+      YY = RR*SIN(XXL)+C2
+      XI = FLOAT(IL+1)/2.+XX/DS
+      YJ = FLOAT(JL+1)/2.+YY/DS
+      IF(INEST1.EQ.1)THEN
+      XI=1.+(XI-XNESSTR)*DXBIGDO/DX
+      YJ=1.+(YJ-YNESSTR)*DXBIGDO/DX
+      ENDIF
+      ICLAMB = 1
+C
+C
+      RETURN
+      END
+      SUBROUTINE MAPCF (XI,YJ,XLAT,XLON)
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C                                                                     C
+C                                                                     C
+C     THIS SUBROUTINE COMPUTES THE LATITUDE AND LONGITUDE FROM MODEL  C
+C     INDEXES OF A POINT.                                             C
+C                                                                     C
+C     INPUT :                                                         C
+C                                                                     C
+C        XI : X COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C        YJ : Y COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C     OUTPUT :                                                        C
+C                                                                     C
+C        XLAT : LATITUDE OF THE POINT.                                C
+C                                                                     C
+C        XLON : LONGITUDE OF THE POINT.                               C
+C                                                                     C
+C     INFORMATION NEEDED:                                             C
+C                                                                     C
+C        XLATC : LATITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.    C
+C                                                                     C
+C        XLONC : LONGITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.   C
+C                                                                     C
+C        DX    : GRID SIZE IN METERS.                                 C
+C                                                                     C
+C        IL    : X DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        JL    : Y DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        PLM1  : LATITUDE OF THE LOW-LEFT CORNER OF THE MAP.          C
+C                                                                     C
+C        PLM2  : LONGITUDE OF THE LOW-LEFT CORNER OF THE MAP.         C
+C                                                                     C
+C        PLM3  : LATITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.       C
+C                                                                     C
+C        PLM4  : LONGITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.      C
+C                                                                     C
+C        IPROJ : MAP PROJECTION,                                      C
+C                = 1 : LAMBERT CONFORMAL                              C
+C                = 2 : POLAR STEREOGRAPHIC                            C
+C                = 3 : MERCATOR                                       C
+C                                                                     C
+C     NOTE ***                                                        C
+C                                                                     C
+C     A WEST LONGITUDE IS GIVEN BY A NEGATIVE NUMBER; POSITIVE        C
+C     ANGLES DENOTE EAST LONGITUDE.                                   C
+C                                                                     C
+C     A NORTH LATITUDE IS GIVEN BY A POSITIVE NUMBER, AND A NEGATIVE  C
+C     NUMBER FOR A SOUTH LATITUDE.                                    C
+C                                                                     C
+C                                                                     C
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C
+      include 'commons/mappar.h'
+C
+C-----------------------------------------------------------------------
+C
+      DATA POLE,CONV / 90.,57.29578 /
+      DATA A,PSI1 / 6370.997,30. /
+      DATA KOUNT / 0 /
+      SAVE
+      KOUNT = KOUNT+1
+      IF(KOUNT.EQ.1)THEN
+      FRTY5D=ATAN(1.)
+      CONV=45./FRTY5D
+      XN = -1.E36
+C  9/5/03 Modified for more general Lambert Conformal with 2 standard parallels,CLAT1,CLAT2
+      IF (IPROJ.EQ.1)THEN
+C     XN = 0.716 IF CLAT1=30 deg, CLAT2=60 deg
+      RLAT1=CLAT1/CONV
+      RLAT2=CLAT2/CONV
+C     XN=ALOG(SIN(RLAT1)/SIN(RLAT2))/ALOG(TAN(.5*RLAT1)/TAN(.5*RLAT2))
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      XN=ALOG(COS(RLAT1)/COS(RLAT2))/ALOG(TAN(FRTY5D+.5*RLAT2)/
+     -TAN(FRTY5D+.5*RLAT1))
+      PSI1=CLAT1
+C     WRITE(7,*)'IPROJ=1, XN,PSI1= ',XN,PSI1
+      ENDIF
+      IF (IPROJ.EQ.2) XN = 1.0
+C
+C     WRITE (6,1000) XLATC,XLONC
+C
+C-----DS IS GRID SPACING IN METERS
+C-----PSI1 IS COLATITUDE OF LAT WHERE CONE OR PLANE INTERSECTS EARTH
+C
+      IF (IPROJ.EQ.2) PSI1 = 50.0
+      IF (IPROJ.NE.3) PSI1 = PSI1/CONV
+      IF (XLATC.LT.0.) THEN
+         PSI1 = -30.
+         POLE = -90.
+         PSI1 = PSI1/CONV
+      ENDIF
+      ENDIF   ! KOUNT=1
+C
+C-----A IS RADIUS OF EARTH IN KM
+C     SUBTRACT XROT  DEGREES TO ROTATE LAMBERT CONFORMAL PROJECTION
+C     CALCULATE R
+C
+      IF (IPROJ.NE.3) THEN
+         PSX = (POLE-XLATC)/CONV
+         IF (IPROJ.EQ.1) THEN
+            CELL = A*SIN(PSI1)/XN
+            CELL2 = (TAN(PSX/2.))/(TAN(PSI1/2.))
+         ENDIF
+         IF (IPROJ.EQ.2) THEN
+            CELL = A*SIN(PSX)/XN
+            CELL2 = (1.+COS(PSI1))/(1.+COS(PSX))
+         ENDIF
+         R = CELL*(CELL2)**XN
+         XCNTR = 0.0
+         YCNTR = -R
+      ENDIF
+C
+C-----FOR MERCATOR PROJECTION, THE PROJECTION IS TRUE AT LATITUDE AT PHI1
+C
+      IF (IPROJ.EQ.3) THEN
+         PHI1 = 0.0
+         PHI1 = PHI1/CONV
+         C2 = A*COS(PHI1)
+         XCNTR = 0.0
+         PHICTR = XLATC/CONV
+         CELL = COS(PHICTR)/(1.0+SIN(PHICTR))
+         YCNTR = -C2*ALOG(CELL)
+      ENDIF
+C     WRITE (6,1010) XCNTR,YCNTR
+C
+C-----CALCULATE X AND Y POSITIONS OF GRID
+C
+      CNTRJ = (JL+1)/2.
+      CNTRI = (IL+1)/2.
+      IF(INEST1.EQ.1)THEN
+      XIBD=XNESSTR+(XI-1)*DX/DXBIGDO
+      YJBD=YNESSTR+(YJ-1)*DX/DXBIGDO
+      ELSE
+      XIBD=XI
+      YJBD=YJ
+      ENDIF
+      X = XCNTR+(XIBD-CNTRI)*DXBIGDO/1000.
+      Y = YCNTR+(YJBD-CNTRJ)*DXBIGDO/1000.
+C     WRITE (6,1020) X,Y
+C
+C-----NOW CALC LAT AND LONG OF THIS POINT
+C
+      IF (IPROJ.NE.3) THEN
+         IF (XLATC.LT.0.0) THEN
+            FLP = ATAN2(X,Y)
+         ELSE
+            FLP = ATAN2(X,-Y)
+         ENDIF
+C     write(6,*)' flp= ',FLP,' XN= ',XN,' conv= ',CONV,' XLONC= ',XLONC
+         FLPP = (FLP/XN)*CONV+XLONC
+C     write(6,*)' flpp= ',FLPP
+         IF (FLPP.LT.-180.) FLPP = FLPP+360.
+         IF (FLPP.GT.180.) FLPP = FLPP-360.
+         XLON = FLPP
+C     write(6,*)' xlon= ', xlon
+C
+C-----NOW SOLVE FOR LATITUDE
+C
+      ZZZZ=X*X+Y*Y
+C     write(6,*)' r(square)= ',zzzz
+         R = SQRT(X*X+Y*Y)
+         IF (XLATC.LT.0.0) R = -R
+         IF (IPROJ.EQ.1) THEN
+C     write(6,*)' psi1= ',PSI1
+            CELL = (R*XN)/(A*SIN(PSI1))
+            RXN = 1.0/XN
+            CEL1 = TAN(PSI1/2.)*(CELL)**RXN
+C      write(6,*)' r=',R,' xn= ',XN,' cel1= ',CEL1
+         ENDIF
+         IF (IPROJ.EQ.2) THEN
+            CELL = R/A
+         CEL1 = CELL/(1.0+COS(PSI1))
+         ENDIF
+         CEL2 = ATAN(CEL1)
+         PSX = 2.*CEL2*CONV
+C     write(6,*)' pole= ',POLE,' psx= ',PSX
+         XLAT = POLE-PSX
+      ENDIF
+C
+C     CALCULATIONS FOR MERCATOR LAT, LONG AND MAP SCALES...
+C
+      IF (IPROJ.EQ.3) THEN
+         XLON = -XLONC-((X-XCNTR)/C2)*CONV
+         CELL = EXP(Y/C2)
+         XLAT = 2.0*(CONV*ATAN(CELL))-90.0
+      ENDIF
+      RETURN
+C
+C
+ 1000 FORMAT (1X,'LATITUDE AND LONGITUDE OF CENTER OF GRID = ',F8.3,'N',
+     *   F8.3,'W')
+ 1010 FORMAT (1X,'X COORD GRID CNTR = ',F8.1,' Y COORD = ',F8.1)
+ 1020 FORMAT (1X,'X INDEX = ',F8.1,' Y INDEX = ',F8.1)
+C
+      END
+C **********************************************************************
+      SUBROUTINE PRNTREC(II,IUN)
+      include 'commons/pvars.h'
+      INTEGER IUN
+      WRITE(IUN,*)'XXXXXXXXXXXXXXXXX REC= ',II,' XXXXXXXXXXXXXXXXXXX'
+      WRITE(IUN,*)'ICOUN= ',ICOUN
+      WRITE(IUN,*)'SITEID= ',SITEID
+      WRITE(IUN,*)'UNITID= ',UNITID
+      WRITE(IUN,*)'ERPTID= ',ERPTID
+      WRITE(IUN,*)'PROCID= ',PROCID
+      WRITE(IUN,*)'SITEDESC= ',SITEDESC
+      WRITE(IUN,*)'ISTRMNDY= ',ISTRMNDY
+      WRITE(IUN,*)'IENDMNDY= ',IENDMNDY
+      WRITE(IUN,*)'POLCODE,ANN_EMS= ',POLCODE,ANN_EMS
+      WRITE(IUN,*)'ISCC= ',ISCC
+      WRITE(IUN,*)'STKHGT= ',STKHGT
+      WRITE(IUN,*)'STKDIAM= ',STKDIAM
+      WRITE(IUN,*)'STKTEMP= ',ISTKTMP
+      WRITE(IUN,*)'STKFLOW= ',STKFLOW
+      WRITE(IUN,*)'STKVEL= ',STKVEL
+      WRITE(IUN,*)'THRUPUTS= ',WINTHRU,SPRTHRU,SUMTHRU,FALTHRU
+      WRITE(IUN,*)'XLAT= ',XLAT
+      WRITE(IUN,*)'XLON= ',XLON
+      WRITE(IUN,*)'IRTYP= ',IRTYP
+      WRITE(IUN,*)'FUGHT= ',FUGHT
+      WRITE(IUN,*)'C8DUM= ',C8DUM
+      WRITE(IUN,*)'IYEAR= ',IYEAR
+      WRITE(IUN,*)'ORISID= ',ORISID
+      CALL FLUSH(IUN)
+      RETURN
+      END
+EOFB
+#
+if ( -e relp_4BMcD.x ) rm relp_4BMcD.x
+#pgf90 -g -C -o relp_4BMcD.x relp_4BMcD.f
+pgf90 -O1 -o relp_4BMcD.x relp_4BMcD.f
+#
+relp_4BMcD.x
+date
+time
+#
+#rm o3plt.*
+if ($ENVIRONMENT == "BATCH") then
+    exit (0)
+#else if ($ENVIRONMENT == "INTERACTIVE") then
+#   ictrans gmeta
+endif

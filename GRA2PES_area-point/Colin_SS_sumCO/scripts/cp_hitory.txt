@@ -1,0 +1,2 @@
+cp /wrk/charkins/emissions/NEI/NEI17/NEI_CO2/CO_spatial_surrogate/gen_CO_spatial_surrogate.R .
+cp /wrk/charkins/emissions/NEI/NEI17/NEI_CO2/sum_CO/sum_CO_rds.R .

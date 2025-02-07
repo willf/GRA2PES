@@ -1,0 +1,5 @@
+#Colin:
+#AG and WASTE are also included when summed but are not scaled so I just symlink the directory from base year when summing (in base.dir)
+
+ln -sf /wrk/d2/bmcdonald/NEI17/AREA17/Month07/AreaWASTE /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/scal_sum_ncf/scaled2021_rds/area/Month08/AreaWASTE
+ln -sf /wrk/d2/bmcdonald/NEI17/AREA17/Month07/AreaAG /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/scal_sum_ncf/scaled2021_rds/area/Month08/AreaAG

@@ -1,0 +1,108 @@
+! Speciation profile for AL emissions into RADM2, SAM and GF 11/15/21
+! RACM2_BERK_VCP3 speciation profile, updated 11/2/2022 Colin Harkins, 6/13/2023 updated with Quazi Rasool suggested updates for Simple SOM project mapping from racm2b_vcp to SSMsaprc
+! 11/13/2024 updated for changes to IVOCs 
+! CO        e_co                      1.00            28         1
+! NOX       e_no                      0.90            46         1  ! US EPA NOx speciation in gspro files
+! NOX       e_no2                     0.092           46         1  ! US EPA NOx speciation in gspro files
+! NOX       e_hono                    0.008           46         1  ! US EPA NOx speciation in gspro files
+! SO2       e_so2                     1.00            64         1
+! NH3       e_nh3                     1.00            17         1
+! HC01      e_ch4                     1.00            00         Methane
+! HC02      e_eth                     1.00            00         Ethane  kOH<500 /ppm/min
+! HC03      e_c3h8                    1.00            00         Alkane 500<kOH<2500 exclude(C3H8,C2H2,ethanol,acids)
+! HC04      e_hc3                     1.11            00         Alkane 2500<kOH<5000 exlude(butanes)
+! HC05      e_hc5                     0.97            00         Alkane 5000<kOH<10000 exlude(pentanes)
+! HC06      e_hc8                     1.00            00         Alkane kOH>10000 exclude(ethylene glycol)
+! HC07      e_ol2                     1.00            00         Ethylene
+! HC08      e_olt                     1.00            00         Alkene kOH <20000 /ppm/min
+! HC09      e_oli                     1.00            00         Alkene kOH >20000 /ppm/min exclude(dienes,styrenes)
+! HC10      e_iso                     1.00            00         Isoprene
+! HC11      e_terp                    1.00            00         Anthro terpenes (VCPs 7/3/19)
+! HC12      e_ben                     0.50            00         Aromatic kOH <20000 /ppm/min exclude(benzene and toluene)
+! HC12      e_tol                     0.50            00         Aromatic kOH <20000 /ppm/min exclude(benzene and toluene)
+! HC13      e_xyl                     0.67            00         Aromatic kOH >20000 /ppm/min exclude(xylenes)
+! HC13      e_xyo                     0.33            00         Aromatic kOH >20000 /ppm/min exclude(xylenes)
+! HC14      e_hcho                    1.00            00         Formaldehyde
+! HC15      e_acd                     1.00            00         Acetaldehyde
+! HC16      e_ald                     1.00            00         Higher aldehydes
+! HC17      e_bald                    1.00            00         Benzaldehyde
+! HC18      e_act                     1.00            00         Acetone
+! HC19      e_mek                     1.00            00         Methylethyl ketone
+! HC20      e_ket                     1.61            00         PRD2 SAPRAC species (aromatic ketones)
+! HC21      e_moh                     1.00            00         Methanol
+! HC22      e_gly                     1.00            00         Glyoxal
+! HC23      e_mgly                    1.00            00         Methylglyoxal
+! HC24      e_mgly                    1.00            00         Biacetyl
+! HC25      e_phen                    1.00            00         Phenols
+! HC26      e_csl                     1.00            00         Cresols
+! HC27      e_macr                    1.00            00         Methacrolein
+! HC28      e_mvk                     1.00            00         Methylvinyl ketone
+! HC29      e_isoprod                 1.00            00         IPRD SAPRAC species (>C4 unsaturated aldehydes)
+! HC30      e_ora1                    1.00            00         Formic Acid add 1/10/2023
+! HC31      e_cco_oh                  1.00            00         Acetic Acid
+! HC32      e_ora2                    1.00            00         >C2 Acids  (SAPRC PACD species)
+! HC33      e_csl                     1.00            00         Xylenols  (SAPRC-11 species)
+! HC34      e_mct                     1.00            00         Catechols  (SAPRC-11 species)
+! HC36      e_c3h6                    1.00            00         Propylene
+! HC37      e_ace                     1.00            00         Acetylene
+! HC38      e_ben                     1.00            00         Benzene
+! HC39      e_hc3                     1.11            00         Butanes
+! HC40      e_hc5                     0.97            00         Pentanes
+! HC41      e_tol                     1.00            00         Toluene
+! HC42      e_xyl                     1.00            00         m-Xylene
+! HC43      e_xyo                     1.00            00         o-Xylene
+! HC44      e_xyl                     1.00            00         p-Xylene
+! HC45      e_hc3                     0.57            00         Propane
+! HC46      e_dien                    1.00            00         Dienes
+! HC47      e_olt                     1.00            00         Styrenes
+! HC48      e_eoh                     1.00            00         Ethanol
+! HC49      e_eteg                    1.00            00         Ethylene Glycol
+! PM01      e_pm25i                   0.20            01         Unspeciated primary PM2.5 - nuclei mode
+! PM01      e_pm25j                   0.80            01         Unspeciated primary PM2.5 - accumulation mode
+! PM02      e_so4i                    0.20            01         Sulfate PM2.5 - nuclei mode
+! PM02      e_so4j                    0.80            01         Sulfate PM2.5 - accumulation mode
+! PM03      e_no3i                    0.20            01         Nitrate PM2.5 - nuclei mode
+! PM03      e_no3j                    0.80            01         Nitrate PM2.5 - accumulation mode
+! PM04      e_orgi                    0.20            01         Organic Carbon PM2.5 - nuclei mode
+! PM04      e_orgj                    0.80            01         Organic Carbon PM2.5 - accumulation mode
+! PM05      e_eci                     0.20            01         Elemental Carbon PM2.5 - nuclei mode
+! PM05      e_ecj                     0.80            01         Elemental Carbon PM2.5 - accumulation mode
+! PM06      e_orgi                    0.20            01         Non-Carbon Organic  PM2.5 - nuclei mode
+! PM06      e_orgj                    0.80            01         Non-Carbon Organic  PM2.5 - accumulation mode
+! PM10-PRI  e_pm10                    1.00            01         Unspeciated Primary PM10
+! CO2       e_co2                     1.00            44         CO2
+! HC50      e_unid                    1.00            00         Unidentified/Unknown VOC - to go into IVOC for SOA 10/2/15
+! HC51      e_ipoh                    1.00            00         Isopropyl Alcohol, Oxygenated VCP add 8/2/20
+! HC52      e_prog                    1.00            00         Proplylene Glycol, Oxygenated VCP add 8/2/20
+! HC53      e_glyc                    1.00            00         Glycerol, Oxygenated VCP add 8/2/20
+! HC54      e_d4silx                  1.00            00         D4-Siloxane add 6/6/22
+! HC55      e_d5silx                  1.00            00         D5-Siloxane add 6/6/22
+! HC56      e_ben                     1.00            00         Other Siloxane add 6/6/22
+! HC57      e_nrog                    1.00            00         NROG add 6/6/22
+! HC58      e_pcbtf                   1.00            00         pcbtf add 6/6/22
+! HC59      e_pdcbz                   1.00            00         pdcbz add 6/6/22
+! HC60      e_cald                    1.00            00         Propanal add 6/6/22
+! HC61      e_cald                    1.00            00         Butanal add 6/6/22
+! HC62      e_cald                    1.00            00         Pentanal add 6/6/22
+! HC63      e_cald                    1.00            00         Hexanal add 6/6/22
+! HC64      e_cald                    1.00            00         Heptanal add 6/6/22
+! HC65      e_oald                    1.00            00         Octanal add 11/4/22
+! HC66      e_nald                    1.00            00         Nonanal add 6/6/22
+! HC67      e_cuald                   1.00            00         Unsaturated Aldehydes add 7/22/22
+! HC68      e_cald                    1.00            00         C10+ aldehydes add 11/4/22
+! HC69      e_roh                     1.00            00         Alcohols,  added 11/13/24
+! HC70      e_dcb1                    1.00            00         unsaturated dicarbonyls,  added 11/13/24
+! HC71      e_ivocp6-alk              1.00            00         IVOC category,  added 11/13/24
+! HC72      e_ivocp5-ALK              1.00            00         IVOC category,  added 11/13/24
+! HC73      e_ivocp4-ALK              1.00            00         IVOC category,  added 11/13/24
+! HC74      e_ivocp3-ALK              1.00            00         IVOC category,  added 11/13/24
+! HC75      e_ivocp6-ARO              1.00            00         IVOC category,  added 11/13/24
+! HC76      e_ivocp5-ARO              1.00            00         IVOC category,  added 11/13/24
+! HC77      e_sesq                    1.00            00         sesquiterpenes,  added 11/13/24
+! HC78      e_api                     1.00            00         alpha pinene,  added 11/13/24
+! HC79      e_lim                     1.00            00         limonene,  added 11/13/24
+! HC80      e_euc                     1.00            00         eucalyptol,  added 11/13/24
+! HC81      e_carb                    1.00            00         carbitol,  added 11/13/24
+! HC82      e_bcarb                   1.00            00         butyl carbitol,  added 11/13/24
+! HC83      e_benzoh                  1.00            00         Benzyl alcohol,  added 11/13/24
+! HC84      e_dpgmea                  1.00            00         Dipropylene glycol monomethyl ether acetate,  added 11/13/24

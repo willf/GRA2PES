@@ -1,0 +1,10 @@
+V20231002
+	add ffCO2 as separate variable for onroad emissions. other categories assumed as 100% ffCO2
+V20230410
+	change offroad emissions to remove day-of-week variations
+V20230207
+	change styrenes to go 100% to e_olt
+V20230110
+	Formic acid (HC30) was previously not mapped to any RACM2_BERK_VCP species or RACM_ESRL_VCP species.
+	According to Becky, formic acid is directly included as ORA1 in both mechanisms. 
+	This version adds a mapping between HC30 and e_ora1.

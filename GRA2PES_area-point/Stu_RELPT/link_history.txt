@@ -1,0 +1,1 @@
+ln -sf /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202101 /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS2021

@@ -1,0 +1,69 @@
+V7_GRA2PES2021
+
+output_RELPT_emis_CEMS202108
+
+'/nfs/csd4/archive/stu/nei17/point_dat/oilgas2_SmokeFlatFile_POINT_20200412.csv' file of oil/gas point emissions
+to
+'/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Gen_RELPT_input/output/oilgas2_SmokeFlatFile_POINT_202406.csv' file of oil/gas point emissions
+
+egucems202108_2017NEI_POINT_202404.csv
+
+relCEMS2108
+
+      PARAMETER(ISCCMX=4617,NRECMX=6096635,NSITMX=90000) ! NEI-2017 new point to point CEMS EGU match, from /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202108/relp4BMcD.outp
+      !ISCCMX: RLPTNDX SCCpoint Totl records=          4617
+      !NRECMX: RLPTNDX Totl records=       6096635
+C     PARAMETER(ISCCMX=4881,NRECMX=6899908,NSITMX=90000) ! NEI-2017, 7/23/20
+C     PARAMETER(ISCCMX=4924,NRECMX=8832901,NSITMX=90000) ! NEI-2014, 6/30/19
+C     PARAMETER(ISCCMX=4854,NRECMX=6482734,NSITMX=56382) ! NRECMX is sum of records in IPM plus nonIPM files 10/18/13
+C     PARAMETER(ISCCMX=4838,NRECMX=1158379,NSITMX=56382)  ! NEI-2005
+C     PARAMETER(NIPMMX=11627) ! Max IPM records, =IRLEMX in make_monthly_ipm.sub
+C     PARAMETER(NCEMMX=4455)  ! Max CEMs records, =ICEMP in cemhrly.sub
+      PARAMETER(NIPMMX=1) ! Max IPM records, =IRLEMX in make_monthly_ipm.sub
+      PARAMETER(NCEMMX=1)  ! Max CEMs records, =ICEMP in cemhrly.sub
+      PARAMETER(IX=1332,JX=1008,IP=IX+1,JP=JX+1,IM=IX-1,JM=JX-1)
+      PARAMETER(IPRI=8)  ! IPRI is number of primary species, CO2 added 12/8/20
+      PARAMETER(ISTCMX=99999)
+C     PARAMETER(ICONTY=3141)
+      PARAMETER(IZLEV=12,IZLVM=IZLEV-1,ISP2=4)
+C Parameters for indexing month, week, & day allocation profiles
+      PARAMETER(IMNMX=3082,IWKMX=111,IDYMX=13666)
+C Number of distinct U.S. IFIPS in tref file = IFIPMX
+      PARAMETER(IFIPMX=3460+1)  ! Add extra 56075 county not in FIPS file
+C Parameters for release point indexing
+      PARAMETER(ICEMMX=1)
+C     PARAMETER(ICEMMX=446871) NEI-2005
+      PARAMETER(IRLPMX=168230) ! NEI-17 new point to point CEMS EGU match, from /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202108/relp4BMcD.outp
+      !IRLPMX: RLPTNDX Totl release points=        168230
+
+to
+
+      PARAMETER(ISCCMX=4615,NRECMX=6048748,NSITMX=90000) !from /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202108/relp4BMcD.outp
+      !ISCCMX: RLPTNDX SCCpoint Totl records=          4615
+      !NRECMX: RLPTNDX Totl records=       6048748
+C     PARAMETER(ISCCMX=4881,NRECMX=6899908,NSITMX=90000) ! NEI-2017, 7/23/20
+C     PARAMETER(ISCCMX=4924,NRECMX=8832901,NSITMX=90000) ! NEI-2014, 6/30/19
+C     PARAMETER(ISCCMX=4854,NRECMX=6482734,NSITMX=56382) ! NRECMX is sum of records in IPM plus nonIPM files 10/18/13
+C     PARAMETER(ISCCMX=4838,NRECMX=1158379,NSITMX=56382)  ! NEI-2005
+C     PARAMETER(NIPMMX=11627) ! Max IPM records, =IRLEMX in make_monthly_ipm.sub
+C     PARAMETER(NCEMMX=4455)  ! Max CEMs records, =ICEMP in cemhrly.sub
+      PARAMETER(NIPMMX=1) ! Max IPM records, =IRLEMX in make_monthly_ipm.sub
+      PARAMETER(NCEMMX=1)  ! Max CEMs records, =ICEMP in cemhrly.sub
+      PARAMETER(IX=1332,JX=1008,IP=IX+1,JP=JX+1,IM=IX-1,JM=JX-1)
+      PARAMETER(IPRI=8)  ! IPRI is number of primary species, CO2 added 12/8/20
+      PARAMETER(ISTCMX=99999)
+C     PARAMETER(ICONTY=3141)
+      PARAMETER(IZLEV=12,IZLVM=IZLEV-1,ISP2=4)
+C Parameters for indexing month, week, & day allocation profiles
+      PARAMETER(IMNMX=3082,IWKMX=111,IDYMX=13666)
+C Number of distinct U.S. IFIPS in tref file = IFIPMX
+      PARAMETER(IFIPMX=3460+1)  ! Add extra 56075 county not in FIPS file
+C Parameters for release point indexing
+      PARAMETER(ICEMMX=1)
+C     PARAMETER(ICEMMX=446871) NEI-2005
+      PARAMETER(IRLPMX=166690) !from /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202108/relp4BMcD.outp
+      !IRLPMX: RLPTNDX Totl release points=        166690
+
+
+
+

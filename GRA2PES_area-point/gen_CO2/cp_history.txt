@@ -1,0 +1,1 @@
+ cp /wrk/charkins/emissions/NEI/NEI17/NEI_CO2/rail/*.csv .

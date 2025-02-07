@@ -1,0 +1,2555 @@
+#!/bin/csh
+#$ -N wrfemis
+#$ -A texaqs
+#$ -V
+#$ -pe vis 1
+#$ -l h_rt=00:30:00
+# 6/21/24, Same updates from v20231002 but also uses ffCO2 variable from offroad 
+# 8/21/20, Added MACR, GLY, MGLY emissions species for verison 2 of OVCP for Becky
+# 8/17/20, Name change by Becky, IPALC--> IPOH and PROPG--> PROG
+# 8/7/20, Add 7, including MeOH, new variable to emissions in RACM_ESRL_VBS update by Becky Schwantes
+# 8/2/20, Add 6 new variable to emissions in RACM_ESRL_VBS update by Becky Schwantes
+# EOH(ethanol), ETEG(ethylene glycol), PROPG(propylene glycol),
+# GLYC(glycerol),IPALC(isopropyl alcohol), ACT(acetone). PROPG,GLYC and IPALC
+# are brand new species, on/nonroad emissions from B McDonald, area and point set to zero.
+# 7/3/19, Add new emission output variable - e_terp , for VCP testing of anthro terpene emiss.
+# 10/11/15 - Fix POA emissions to POA+PNCOM
+# 10/2/15 - Add in unidentified VOC into binary files for Ravan IVOC inclusion in SOA
+# 10/2/15 - Note: Only EDGAR Methane from Agricultural sources is read in, and added to methane from AREADIR2 and POINDIR2
+# 7/3/15 - Make binary files with EDGARv4.2-2010 emissions of CH4 and CO2 included
+# 4/30/15 - New vertical levels - 50 level (version 2) case
+# 3/26/15 - Add back in Top-Down derived inventories (AREADIR2,POINDIR2)
+# 8/8/14 - Put HONO and NO2 in binary output, use US EPA constant factors (.008,.092, respectively)
+# 3/25/14 - Stu McKeen, this generates binary emission files (for convert_emis) for the RADM2 photochemical mechanism.
+# 3/25/14 - Updated for NEI-2011 emission inventory for Continental U.S., Emissions adapted for SPARC-11 mechanism.
+# 3/25/14 - CH4 is now included in the binary output file.
+
+set echo
+
+if ( $?ENVIRONMENT ) then
+   echo "environment variable defined as $ENVIRONMENT"
+else
+   setenv ENVIRONMENT INTERACTIVE
+   echo "environment variable defined as $ENVIRONMENT"
+endif
+#
+#       have the temporary disk as default
+#
+
+set mm = (12)
+
+foreach ii (1)
+
+#set ExpD = /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/make_wrfchemi/CA4km_append_extra/2021/Month{$mm[$ii]}  # Run directory, THIS DIRECTORY MUST EXIST
+set ExpD = /wrk/users/charkins/emissions/V7_GRA2PES/wrfchemi/CA4km_append_extra/2021/Month{$mm[$ii]}  # Run directory, THIS DIRECTORY MUST EXIST
+
+foreach ExpName (weekdy satdy sundy)
+
+setenv ONRDFIL /wrk/users/charkins/emissions/FIVE/onroad_ffCO2/2021/Month{$mm[$ii]}/${ExpName}/
+setenv NONRDFIL /wrk/users/charkins/emissions/FIVE/offroad_marGASnomonthly_marGASnoDOW_ffCO2/2021/Month{$mm[$ii]}/${ExpName}/ 
+setenv AREAFIL /wrk/users/charkins/emissions/V7_GRA2PES/AREA21_ncf/Month{$mm[$ii]}/TotlArea_noFOG_noVCP/${ExpName}/ #CHANGE
+setenv VCPFIL /wrk/users/charkins/emissions/V7_GRA2PES/VCP21_ncf/Month{$mm[$ii]}/TotlAreaVCP/${ExpName}/
+setenv COOKFIL /wrk/d2/charkins/CSD_Emissions/conus4k/Cooking21/Month{$mm[$ii]}/Cooking_Mean/${ExpName}/
+setenv OGFIL /wrk/users/charkins/emissions/FOG/FOG_data/FOG_ncf_v11/2021/Month{$mm[$ii]}/${ExpName}/ 
+setenv CAMSFIL /wrk/d2/charkins/CAMSv4.2/regrid/2019_fixedOM/Month{$mm[$ii]}/${ExpName}/ # 
+setenv POINFIL /wrk/users/charkins/emissions/V7_GRA2PES/POINT21_ncf_append_extra/Month{$mm[$ii]}/TotlPoint/${ExpName}/ #CHANGE
+
+# WRF input file - template for wrchemi files.
+setenv WRFINFIL /wrk/csd4/kyu/wrfinput_Mar2021/wrfinput_CA4k_Ndown # Directory where wrfinput file resides
+
+#       have the temporary disk as default
+if (   -d ${ExpD}/${ExpName} ) then
+   chdir  ${ExpD}/${ExpName}
+else
+   if ( -d ${ExpD}) then
+       mkdir  ${ExpD}/${ExpName}
+       chmod 755 ${ExpD}/${ExpName}
+       chdir  ${ExpD}/${ExpName}
+   else
+       mkdir ${ExpD}
+       chmod 755 ${ExpD}
+       mkdir  ${ExpD}/${ExpName}
+       chmod 755 ${ExpD}/${ExpName}
+       chdir  ${ExpD}/${ExpName}
+   endif
+endif
+
+if ( -e binei17.f ) rm binei17.f
+cat >binei17.f<< EOFA
+!dis !dis    Open Source License/Disclaimer, Forecast Systems Laboratory
+!dis    NOAA/OAR/FSL, 325 Broadway Boulder, CO 80305
+!dis
+!dis    This software is distributed under the Open Source Definition,
+!dis    which may be found at http://www.opensource.org/osd.html.
+!dis
+!dis    In particular, redistribution and use in source and binary forms,
+!dis    with or without modification, are permitted provided that the
+!dis    following conditions are met:
+!dis
+!dis    - Redistributions of source code must retain this notice, this
+!dis    list of conditions and the following disclaimer.
+!dis
+!dis    - Redistributions in binary form must provide access to this
+!dis    notice, this list of conditions and the following disclaimer, and
+!dis    the underlying source code.
+!dis
+!dis    - All modifications to this software must be clearly documented,
+!dis    and are solely the responsibility of the agent making the
+!dis    modifications.
+!dis
+!dis    - If significant modifications or enhancements are made to this
+!dis    software, the FSL Software Policy Manager
+!dis    (softwaremgr@fsl.noaa.gov) should be notified.
+!dis
+!dis    THIS SOFTWARE AND ITS DOCUMENTATION ARE IN THE PUBLIC DOMAIN
+!dis    AND ARE FURNISHED "AS IS."  THE AUTHORS, THE UNITED STATES
+!dis    GOVERNMENT, ITS INSTRUMENTALITIES, OFFICERS, EMPLOYEES, AND
+!dis    AGENTS MAKE NO WARRANTY, EXPRESS OR IMPLIED, AS TO THE USEFULNESS
+!dis    OF THE SOFTWARE AND DOCUMENTATION FOR ANY PURPOSE.  THEY ASSUME
+!dis    NO RESPONSIBILITY (1) FOR THE USE OF THE SOFTWARE AND
+!dis    DOCUMENTATION; OR (2) TO PROVIDE TECHNICAL SUPPORT TO USERS.
+!dis
+!dis
+
+!WRF:PACKAGE:IO
+
+  include 'constants_module.f90'
+  include 'misc_definitions_module.f90'
+  include 'module_debug.f90'
+  include 'module_map_utils.f90'
+
+     MODULE EMISSIONS_WPS_V6
+
+!
+! Version 2.0 of the emissions standard initialization routine. This
+!  program is for use with the chemistry code in WRF V3
+!
+! This program takes formatted output of em11v1 NEI-2011 v1 inventory and
+! grids to a different grid.  Simple grid dumping done here so it is
+! not to be used with domains using grid spacing less than 12 km.
+!
+!  Stu McKeen 6/20/04
+!  Steven Peckham 1/25/05
+!
+! compile with:
+!  pgf90 -w -byteswapio -Mfree -Mlfs emiss_v03_wps.F
+!
+!or
+!
+!  mpif90 -axP -free -convert big_endian emiss_v03_wps.F
+!-----------------------------------------------------------------------
+!
+!  Fields to set before running:
+!
+!  zfa                    elevation at grid cell top (m)
+!  ix2                    x-dimension of output  data (ix2=nx-1 for WRF domain)
+!  jx2                    y-dimension of output  data (jx2=ny-1 for WRF domain)
+!  kx                     z-dimension of output  data (kx =kemit for WRF domain)
+!  IPROJ                  =1 if Lambert Conformal, =2 if Polar Stereographic
+!  DX                     horizontal grid spacing (m)
+!  REKM                   Earth radius (km)
+!  XLATC                  Center latitude of mother doamin projection
+!  XLONC                  Center longitude of mother domain projection (-180->180E)
+!  CLAT1                  Northern most reference latitude of mother domain projection
+!  CLAT2                  Southern most ref. lat. of mother domain for Lambert Conformal, not used for Polar Stereo (TRUELAT1 > TRUELAT2)
+!  INEST1                 =0 if emissions in mother domain, =1 if a nest within mother domain
+!  XNESSTR                X value of southwestern most (dot) point of nested domain in mother (=1. if mother)
+!  YNESSTR                Y value of southwestern most (dot) point of nested domain in mother (=1. if mother)
+!  DXBIGDO                horizontal grid spacing (m) of mother domain (=DX if emissions in mother)
+!  IL                     X (west-east) stagger dimension of mother (=IX2+1 if emissions in mother)
+!  JL                     Y (south-north) stagger dimension of mother (=JX2+1 if emissions in mother)
+!  HEMI                   1 for Northern Hemisphere, -1 for Southern Hemisphere
+!  ISTART                 1 for starting at 00z , 12 for starting at 12z
+!  ZFA                    grid level height (m) of 4-D emission file specified at the top of the WRF grid cell (w data point).
+!  MAXHR                  Number of hours the emissions data is to be generated for (e.g., maxhr=3 for 3 hours of data)
+!  POINDIR                directories of point emissions input data
+!  AREADIR                directories of area emissions input data
+!  REFWZ                  interval grid level height (m) of wind-data (climatology) used in momentum lift calcs.
+!  WSP                    wind speed at level height (m) specified by REFWZ
+!-----------------------------------------------------------------------
+!
+! - Input emissions data dimensions.  This is fixed for the 4-km grid
+!    that the NEI-05 emissions is located on.
+!  Note the grid numbering convention.  The lower left corner is numbered (1,1)
+!    and the lower left cell center is numbered (1.5,1.5)
+!
+     PARAMETER(IX=1332,JX=1008,IP=IX+1,JP=JX+1,IM=IX-1,JM=JX-1)
+!
+! - Output emissions data dimensions (user specified)
+!
+!    PARAMETER(IX2=440,JX2=284,KX=13,KP=KX+1,IP2=IX2+1,JP2=JX2+1) ! Senex-13 original vertical grid
+!    PARAMETER(IX2=440,JX2=284,KX=26,KP=KX+1,IP2=IX2+1,JP2=JX2+1) ! Senex-13 new 3/18/15 grid
+!    PARAMETER(KX=20,KP=KX+1) ! Output vertical levels, fixed at 20 here
+!    PARAMETER(IX2=953,JX2=834,KX=20,KP=KX+1,IP2=IX2+1,JP2=JX2+1) ! RAPchm-13km 7/24/20
+!
+!
+! Number of release points
+!
+!    PARAMETER(IPOINT=168516)  ! NEI2005 version 2
+!    PARAMETER(IPOINT=224097) !  NEI-11 US, version1, and NEI05 Mexico and Canada 11/1/13
+!    PARAMETER(IRLPUS=206621) !  NEI-11 US, version1, and NEI05 Mexico and Canada 11/1/13
+!    PARAMETER(IPOINT=234870) !  NEI-14 US, version2, and NEI05 Mexico and Canada 11/1/13
+     PARAMETER(IRLPUS=217394) !  NEI-14 US, version2, and NEI05 Mexico and Canada 11/1/13
+!
+! Number of Primary (IPRIM), VOC (IVOC), and PM2.5 (IPM25) species in NEI-11 emission files
+!
+     PARAMETER(IPRIM=9, IVOC=68, IPM25=19) ! 10/2/2023 - Colin Harkins - for adding ffCO2
+!     PARAMETER(IPRIM=8, IVOC=68, IPM25=19)
+	 PARAMETER(NAL2DO=80, NRADM=49, NAMFILE2=88) ! 10/2/2023 - Colin Harkins - for adding ffCO2
+!	 PARAMETER(NAL2DO=79, NRADM=48, NAMFILE2=87) ! 1/10/23 - Colin Harkins - for adding formic acid
+!     PARAMETER(NAL2DO=78, NRADM=47, NAMFILE2=87) ! 12/06/22 - Colin Harkins - for adding C10+ ald
+!    PARAMETER(NAL2DO=63, NRADM=36, NAMFILE2=74) ! 2/6/21 put 53 VOC into original RADM2/RACM mech. without OVCPs
+! 
+! Number of grid levels, and interval levels for wind climatology data used in vertical momentum lift calcs.
+! 
+     PARAMETER(KWIN=20,KWINP=KWIN+1)
+  integer, parameter    :: Ntime_outf = 12  ! Number of time slices in output netcdf file
+! 
+     CHARACTER (len=80)                       ::  INFIL,OUFILU,FIL,FIL24
+     CHARACTER (len= 9), DIMENSION(NAMFILE2)  ::  NAM, NAMRAD
+     CHARACTER (len= 9), DIMENSION(NAL2DO)    ::  NAM2EM
+     CHARACTER (len= 9), DIMENSION(NRADM)     ::  ENAME
+     CHARACTER (len=10), DIMENSION(IPRIM)     ::  NAMINF
+     CHARACTER (len=10), DIMENSION(IVOC)      ::  NAMVOC
+     CHARACTER (len=10), DIMENSION(IPM25)     ::  NAMPM2
+     CHARACTER (len=10)                       ::  INARG,CHSPEC,CHSCRT
+     CHARACTER (len= 4)                       ::  HRNAM
+     CHARACTER (len=128)                      ::  POINDIR,AREADIR
+     CHARACTER (len=128)                      ::  AREADIR2,POINDIR2,POINDIR3  ! Additional Emis. Files to Read in
+     CHARACTER (len= 7)                       ::  HR_range
+
+     INTEGER                                  ::  I, J, K, N
+     INTEGER                                  ::  IX2,JX2,IP2,JP2,KXwrf ! Input WRF file dimensions
+     INTEGER                                  ::  IDEX,IPOINT
+     INTEGER                                  ::  IEMAX, JEMAX
+     INTEGER, DIMENSION(NAMFILE2)             ::  MWT
+
+!    REAL, DIMENSION(IX,JX,Ntime_outf)     :: EMT3
+     REAL, DIMENSION(IX,JX,1)              :: EMT3
+     REAL, DIMENSION(IX,JX)     :: EMT,EMT2
+     real, allocatable, dimension(:)                    :: EMP
+     REAL, DIMENSION(IRLPUS)    :: EMP2
+     real, allocatable, dimension(:,:)                  :: EM2D
+     REAL, DIMENSION(24,KWIN)     :: WSPD
+
+     real, allocatable, dimension(:,:,:,:)              :: EM3RD
+     real, allocatable, dimension(:,:,:)                :: EM3RS
+     REAL, DIMENSION(NAMFILE2)           :: FAC
+!
+!     Output grid map information
+!
+     REAL, DIMENSION(IP,JP)    :: XLATD,XLOND
+     REAL, DIMENSION(IX,JX)    :: XLATX,XLONX
+     REAL, allocatable, dimension(:,:,:)       :: ZFA  ! interval grid level height (m) of 4-D emission file
+!    REAL, DIMENSION(KP)       :: ZFA(KP)  ! interval grid level height (m) of 4-D emission file
+     REAL, DIMENSION(KWINP)    :: REFWZ(KWINP)  ! interval grid level height (m) of wind-data (climatology) used in momentum lift calcs.
+     REAL                      :: ETOT, EMAX, EMIN
+     REAL                      :: ZTOP
+
+!     Constants
+     REAL       :: rad_per_deg = 0.017453293
+     REAL       :: deg_per_rad = 57.29577951
+
+!
+! Map information for output grid
+!  IPROJ                  =1 if Lambert Conformal, =2 if Polar Stereographic
+!  DX                     horizontal grid spacing (m)
+!  REKM                   Earth radius (km)
+!  XLATC                  Center latitude of mother doamin projection
+!  XLONC                  Center longitude of mother domain projection (-180->180E)
+!  CLAT1                  Northern most reference latitude of mother domain projection
+!  CLAT2                  Southern most ref. lat. of mother domain for Lambert Conformal, not used for Polar Stereo (TRUELAT1 > TRUELAT2)
+!  INEST1                 =0 if emissions in mother domain, =1 if a nest within mother domain
+!  XNESSTR                X value of southwestern most (dot) point of nested domain in mother (=1. if mother)
+!  YNESSTR                Y value of southwestern most (dot) point of nested domain in mother (=1. if mother)
+!  DXBIGDO                horizontal grid spacing (m) of mother domain (=DX if emissions in mother)
+!  IL                     X (west-east) stagger dimension of mother (=IX2+1 if emissions in mother)
+!  JL                     Y (south-north) stagger dimension of mother (=JX2+1 if emissions in mother)
+!  HEMI                   1 for Northern Hemisphere, -1 for Southern Hemisphere
+!  STARTHR                1 for starting at 00z , 12 for starting at 12z
+!  MAXHR                  Number of hours the emissions data is to be generated for (e.g., maxhr=3 for 3 hours of data)
+!
+     INTEGER    :: hemi = +1  ! SAM 7/9/08 - Only northern hemisphere Lambert Conf. and Polar Stereograph tested
+! Following for  RAPChem domain 7/24/20
+!! real                  :: truelat1 = 38.5
+!! real                  :: truelat2 = 38.5
+!  real                  :: stdlon = 106.0
+!  real                  :: lat1 = 54.0 ! center lat-lon
+!  real                  :: lon1 = -106.0 ! center lat-lon
+!  real                  :: knowni = .5*(IX2+2) ! center lat-lon
+!  real                  :: knownj = .5*(JX2+2) ! center lat-lon
+!  real                  :: dx = 13545.09
+!  real                  :: user_dlat
+!  real                  :: user_dlon
+!  real                  :: user_pole_lat = 36.0
+!  real                  :: user_pole_lon = 180.0
+!  integer               :: proj_num = 6 ! Cassini
+! Following for 12km CONUS CSL domain 7/24/20
+!  real                  :: truelat1 = 33.
+!  real                  :: truelat2 = 45.
+!  real                  :: stdlon = -97.
+!  real                  :: lat1 = 39.61764 ! center lat-lon
+!  real                  :: lon1 = -97.77487 ! center lat-lon
+!  real                  :: knowni = .5*(IX2+2) ! center lat-lon
+!  real                  :: knownj = .5*(JX2+2) ! center lat-lon
+!  real                  :: dx = 12000.00
+!  real                  :: user_dlat
+!  real                  :: user_dlon
+!  real                  :: user_pole_lat = 90.0
+!  real                  :: user_pole_lon = 0.0
+!  integer               :: proj_num = 1 ! Lambert Conformal
+! Following are map projection parameters for WRF input file
+   real                  :: truelat1,truelat2,stdlon,lat1,lon1,knowni,knownj,dx
+   real                  :: user_dlat,user_dlon,user_pole_lat,user_pole_lon
+   integer               :: proj_num  ! 1= Lambert Conformal, 6= RAP/Chem CASINNI
+     INTEGER    :: starthr = 01
+     INTEGER    :: maxhr = 24
+     INTEGER    :: endhr 
+! Following for EPA 4 km domain (Lambert Conformal)
+     INTEGER    :: iprojep = 1
+     REAL       :: dxep = 4.E3
+     REAL       :: xlatcep =  40.0     ! grid center latitude of mother domain
+     REAL       :: xloncep = -97.0     ! grid center longitude of mother domain
+     REAL       :: clatep1 = 45.00
+     REAL       :: clatep2 = 33.00
+     INTEGER    :: inestep = 0
+     REAL       :: xnessep = 1.
+     REAL       :: ynessep = 1.
+     REAL       :: dxbigep = 4.E3
+     INTEGER    :: ilep = 1369
+     INTEGER    :: jlep = 1045
+! Variables common to REGRID and FRAC
+     INTEGER     ::  LDEV
+     INTEGER             ::  I1,I2,I3,I4,J1,J2,J3,J4,ILONG
+!     REAL*16             ::  FR1,FR2,FR3,FR4,TAR,X1,X2,X3,X4,Y1,Y2,Y3,Y4
+     REAL*8              ::  FR1,FR2,FR3,FR4,TAR,X1,X2,X3,X4,Y1,Y2,Y3,Y4
+!
+! Names of output emission variables
+     DATA ENAME /    &
+      'E_SO2 ','E_NO  ','E_NO2 ','E_HONO','E_ALD ','E_HCHO','E_ORA1',   &
+      'E_ORA2','E_NH3 ','E_HC3 ','E_HC5 ','E_HC8 ',                     &
+      'E_ETH ','E_CO  ','E_OL2 ','E_OLT ','E_OLI ','E_TOL ','E_XYL ',   &
+      'E_KET ','E_CSL ','E_ISO ','E_CH4 ','E_CO2 ','E_UNID','E_PM25I',  &
+      'E_PM25J','E_SO4I','E_SO4J','E_NO3I','E_NO3J','E_ORGI','E_ORGJ',  &
+      'E_ECI','E_ECJ','E_PM10','E_TERP','E_EOH','E_ETEG','E_PROG',      &
+      'E_GLYC','E_IPOH','E_ACT','E_MOH','E_GLY','E_MGLY','E_MACR',      &
+	  'E_NROG','E_FFCO2'/
+!
+! Names of input emission variables
+     DATA NAM2EM /  &
+       'CO', 'NOX', 'SO2', 'NH3','HC01','HC02','HC03','HC04','HC05',    &
+     'HC06','HC07','HC08','HC09','HC10','HC12','HC13','HC14','HC15',    &
+     'HC16','HC17','HC18','HC19','HC20','HC21','HC22','HC23','HC24',    &
+     'HC25','HC26','HC27','HC28','HC29','HC30','HC31','HC32','HC33',    &
+     'HC34','HC36','HC37','HC38','HC39','HC40','HC41','HC42','HC43',    &
+     'HC44','HC45','HC46','HC47','HC48','HC49','PM01','PM02','PM03',    &
+     'PM04','PM05','PM06','PM10-PRI','CO2','HC50','HC11','HC51','HC52', &
+	 'HC53','HC54','HC55','HC56','HC57','HC58','HC59','HC60','HC61',    &
+	 'HC62','HC63','HC64','HC65','HC66','HC67','HC68','ffCO2'/
+
+!
+! Names of primary species variables (input in tonne/hr)
+     DATA NAMINF /'VOC       ','NOX       ','CO        ','SO2       ',  &
+       'PM10-PRI  ','PM25-PRI  ','NH3       ','CO2       ','ffCO2     '/
+!
+! Names of VOC/HC species variables in the input emission variables
+     DATA NAMVOC /   &
+       ' METHANE  ',' ALKANE1  ',' ALKANE2  ',' ALKANE3  ',' ALKANE4  ',   &
+       ' ALKANE5  ',' ETHYLENE ',' OLEFIN1  ',' OLEFIN2  ',' ISOPRENE ',   &
+       ' TERPENES ','AROMATIC1 ','AROMATIC2 ','   CH2O   ',' CH3CHO   ',   &
+       'HI_ALDEHY ','BENZALDHY ',' ACETONE  ','   MEK    ','  PRD2    ',   &
+       '   MEOH   ',' GLYOXAL  ','METHGLYOX ','   BACL   ',' PHENOLS  ',   &
+       ' CRESOLS  ','  MACR    ','  MVK     ','   IPRD   ',' HCOOH    ',   &
+       ' CH3COOH  ',' RCOOH    ',' XYLENEOLS',' CATECHOLS',' NONVOLATL',   &
+       ' PROPYLENE',' ACETYLENE',' BENZENE  ',' BUTANES  ',' PENTANES ',   &
+       ' TOLUENE  ',' m-XYLENE ',' o-XYLENE ',' p-XYLENE ',' PROPANE  ',   &
+       '  DIENES  ',' STYRENES ',' ETHANOL  ',' ETHE_GLYC',' UNKNOWN  ',   &
+       ' ISOPRPNAL',' PRPGLYCOL',' GLYCEROL ',' D4SILOX  ',' D5SILOX  ',   &
+	   ' OTHSILOX ',' NROG     ',' PCBTF    ',' PDCBZ    ',' PROPANAL ',   &
+	   ' BUTANAL  ',' PENTANAL ',' HEXANAL  ',' HEPTANAL ',' OCTANAL  ',   &
+	   ' NONANAL  ',' UNSATALD ',' C10PLALD '/
+!
+! Names of PM2.5 species variables (input in tonne/hr) in the input emission variables
+     DATA NAMPM2 /'PMFINE','PSO4','PNO3','POC','PEC','PNCOM','PNH4','PAL', &
+       'PCA','PFE','PH2O','PMG','PMOTHR','PK','PMN','PCL','PNA','PTI','PSI'/
+
+!
+!  Conversion table.  Table lists the field, the emissions name, the weight factor to apply, the molecular weight (not used) and the emissions
+!          name  - some with units.  The fields are basically SAPRAC emissions that are being converted to RADM2 emissions input.
+!
+!
+! Speciation profile
+! MW = 01 denotes particulate species, MW=00 denotes VOC species already in molar units
+!           RACM_ESRL_VCP name        Weight          Molecular Weight 
+! CO        e_co                      1.00            28         1
+! NOX       e_no                      0.90            46         1  ! US EPA NOx speciation in gspro files
+! NOX       e_no2                     0.092           46         1  ! US EPA NOx speciation in gspro files
+! NOX       e_hono                    0.008           46         1  ! US EPA NOx speciation in gspro files
+! SO2       e_so2                     1.00            64         1
+! NH3       e_nh3                     1.00            17         1
+! HC01      e_ch4                     1.00            00         Methane
+! HC02      e_eth                     1.00            00         Ethane  kOH<500 /ppm/min
+! HC03      e_hc3                     1.00            00         Alkane 500<kOH<2500 exclude(C3H8,C2H2,ethanol,acids)
+! HC04      e_hc3                     1.11            00         Alkane 2500<kOH<5000 exlude(butanes)
+! HC05      e_hc5                     0.97            00         Alkane 5000<kOH<10000 exlude(pentanes)
+! HC06      e_hc8                     1.00            00         Alkane kOH>10000 exclude(ethylene glycol)
+! HC07      e_ol2                     1.00            00         Ethylene
+! HC08      e_olt                     1.00            00         Alkene kOH <20000 /ppm/min
+! HC09      e_oli                     1.00            00         Alkene kOH >20000 /ppm/min exclude(dienes,styrenes)
+! HC10      e_iso                     1.00            00         Isoprene
+! HC11      e_terp                    1.00            00         Anthro terpenes (VCPs 7/3/19)
+! HC12      e_tol                     1.00            00         Aromatic kOH <20000 /ppm/min exclude(benzene and toluene)
+! HC13      e_xyl                     1.00            00         Aromatic kOH >20000 /ppm/min exclude(xylenes)
+! HC14      e_hcho                    1.00            00         Formaldehyde
+! HC15      e_ald                     1.00            00         Acetaldehyde
+! HC16      e_ald                     1.00            00         Higher aldehydes
+! HC17      e_ald                     1.00            00         Benzaldehyde
+! HC18      e_act                     1.00            00         Acetone
+! HC19      e_ket                     1.61            00         Methylethyl ketone
+! HC20      e_ket                     1.61            00         PRD2 SAPRAC species (aromatic ketones)
+! HC21      e_moh                     1.00            00         Methanol
+! HC22      e_gly                     1.00            00         Glyoxal
+! HC23      e_mgly                    1.00            00         Methylglyoxal
+! HC24      e_mgly                    1.00            00         Biacetyl
+! HC25      e_csl                     1.00            00         Phenols
+! HC26      e_csl                     1.00            00         Cresols
+! HC27      e_macr                    1.00            00         Methacrolein
+! HC28      e_macr                    1.00            00         Methylvinyl ketone
+! HC29      e_ket                     1.00            00         IPRD SAPRAC species (>C4 unsaturated aldehydes)
+! HC30      e_ora1                    1.00            00         Formic Acid add 1/10/2023
+! HC31      e_ora2                    1.00            00         Acetic Acid
+! HC32      e_ora2                    1.00            00         >C2 Acids  (SAPRC PACD species)
+! HC33      e_csl                     1.00            00         Xylenols  (SAPRC-11 species)
+! HC34      e_csl                     1.00            00         Catechols  (SAPRC-11 species)
+! HC36      e_olt                     1.00            00         Propylene
+! HC37      e_hc3                     0.40            00         Acetylene
+! HC38      e_tol                     0.29            00         Benzene
+! HC39      e_hc3                     1.11            00         Butanes
+! HC40      e_hc5                     0.97            00         Pentanes
+! HC41      e_tol                     1.00            00         Toluene
+! HC42      e_xyl                     1.00            00         m-Xylene
+! HC43      e_xyl                     1.00            00         o-Xylene
+! HC44      e_xyl                     1.00            00         p-Xylene
+! HC45      e_hc3                     0.57            00         Propane
+! HC46      e_oli                     1.00            00         Dienes
+! HC47      e_olt                     1.00            00         Styrenes
+! HC48      e_eoh                     1.00            00         Ethanol
+! HC49      e_eteg                    1.00            00         Ethylene Glycol
+! PM01      e_pm25i                   0.20            01         Unspeciated primary PM2.5 - nuclei mode
+! PM01      e_pm25j                   0.80            01         Unspeciated primary PM2.5 - accumulation mode
+! PM02      e_so4i                    0.20            01         Sulfate PM2.5 - nuclei mode
+! PM02      e_so4j                    0.80            01         Sulfate PM2.5 - accumulation mode
+! PM03      e_no3i                    0.20            01         Nitrate PM2.5 - nuclei mode
+! PM03      e_no3j                    0.80            01         Nitrate PM2.5 - accumulation mode
+! PM04      e_orgi                    0.20            01         Organic Carbon PM2.5 - nuclei mode
+! PM04      e_orgj                    0.80            01         Organic Carbon PM2.5 - accumulation mode
+! PM05      e_eci                     0.20            01         Elemental Carbon PM2.5 - nuclei mode
+! PM05      e_ecj                     0.80            01         Elemental Carbon PM2.5 - accumulation mode
+! PM06      e_orgi                    0.20            01         Non-Carbon Organic  PM2.5 - nuclei mode
+! PM06      e_orgj                    0.80            01         Non-Carbon Organic  PM2.5 - accumulation mode
+! PM10-PRI  e_pm10                    1.00            01         Unspeciated Primary PM10
+! CO2       e_co2                     1.00            44         CO2
+! HC50      e_unid                    1.00            00         Unidentified/Unknown VOC - to go into IVOC for SOA 10/2/15
+! HC51      e_ipoh                    1.00            00         Isopropyl Alcohol, Oxygenated VCP add 8/2/20
+! HC52      e_prog                    1.00            00         Proplylene Glycol, Oxygenated VCP add 8/2/20
+! HC53      e_glyc                    1.00            00         Glycerol, Oxygenated VCP add 8/2/20
+! HC54      e_tol                     0.29            00         D4-Siloxane add 8/10/22
+! HC55      e_tol                     0.29            00         D5-Siloxane add 8/10/22
+! HC56      e_tol                     0.29            00         Other Siloxane add 8/10/22
+! HC57      e_nrog                    1.00            00         NROG add 8/10/22
+! HC58      e_nrog                    1.00            00         pcbtf add 8/10/22
+! HC59      e_nrog                    1.00            00         pdcbz add 8/10/22
+! HC60      e_ald                     1.00            00         Propanal add 8/10/22
+! HC61      e_ald                     1.00            00         Butanal add 8/10/22
+! HC62      e_ald                     1.00            00         Pentanal add 8/10/22
+! HC63      e_ald                     1.00            00         Hexanal add 8/10/22
+! HC64      e_ald                     1.00            00         Heptanal add 8/10/22
+! HC65      e_ald                     1.00            00         Octanal (and C10+ aldehydes) add 8/10/22
+! HC66      e_ald                     1.00            00         Nonanal add 8/10/22
+! HC67      e_macr                    1.00            00         Unsaturated Aldehydes add 8/10/22
+! HC68      e_ald                     1.00            00         C10+ aldehydes add 11/4/22
+! FFCO2     e_ffco2                   1.00            44        fossil fuel CO2 add 10/2/23
+
+! input variable name for table translation: TRANAL2R
+     DATA NAM /  &
+       'CO       ','NOX      ','NOX      ','NOX      ','SO2      ','NH3      ','HC01     ','HC02     ','HC03     ',  &
+       'HC04     ','HC05     ','HC06     ','HC07     ','HC08     ','HC09     ','HC10     ','HC12     ','HC13     ',  &
+       'HC14     ','HC15     ','HC16     ','HC17     ','HC18     ','HC19     ','HC20     ','HC21     ','HC22     ',  &
+       'HC23     ','HC24     ','HC25     ','HC26     ','HC27     ','HC28     ','HC29     ', &
+       'HC30     ','HC31     ','HC32     ','HC33     ','HC34     ','HC36     ','HC37     ','HC38     ',  &
+       'HC39     ','HC40     ','HC41     ','HC42     ','HC43     ','HC44     ','HC45     ','HC46     ',  &
+       'HC47     ','HC48     ','HC49     ','PM01     ','PM01     ','PM02     ','PM02     ',  &
+       'PM03     ','PM03     ','PM04     ','PM04     ','PM05     ','PM05     ','PM06     ','PM06     ',  &
+       'PM10-PRI ','CO2      ','HC50     ','HC11     ','HC51     ','HC52     ','HC53     ','HC54     ',  &
+	   'HC55     ','HC56     ','HC57     ','HC58     ','HC59     ','HC60     ','HC61     ','HC62     ',  &
+	   'HC63     ','HC64     ','HC65     ','HC66     ','HC67     ','HC68     ','ffCO2    '/
+
+! output variable name for table translation: TRANAL2R
+     DATA NAMRAD /  &
+       'E_CO     ','E_NO     ','E_NO2    ','E_HONO   ','E_SO2    ','E_NH3    ','E_CH4    ','E_ETH    ','E_HC3    ',  &
+       'E_HC3    ','E_HC5    ','E_HC8    ','E_OL2    ','E_OLT    ','E_OLI    ','E_ISO    ','E_TOL    ','E_XYL    ',  &
+       'E_HCHO   ','E_ALD    ','E_ALD    ','E_ALD    ','E_ACT    ','E_KET    ','E_KET    ','E_MOH    ','E_GLY    ',  &
+       'E_MGLY   ','E_MGLY   ','E_CSL    ','E_CSL    ','E_MACR   ','E_MACR   ','E_KET    ', &
+       'E_ORA1   ','E_ORA2   ','E_ORA2   ','E_CSL    ','E_CSL    ','E_OLT    ','E_HC3    ','E_TOL    ',  &
+       'E_HC3    ','E_HC5    ','E_TOL    ','E_XYL    ','E_XYL    ','E_XYL    ','E_HC3    ','E_OLI    ',  &
+       'E_OLT    ','E_EOH    ','E_ETEG   ','E_PM25I  ','E_PM25J  ','E_SO4I   ','E_SO4J   ',  &
+       'E_NO3I   ','E_NO3J   ','E_ORGI   ','E_ORGJ   ','E_ECI    ','E_ECJ    ','E_ORGI   ','E_ORGJ   ',  &
+       'E_PM10   ','E_CO2    ','E_UNID   ','E_TERP   ','E_IPOH   ','E_PROG   ','E_GLYC   ','E_TOL    ',  &
+	   'E_TOL    ','E_TOL    ','E_NROG   ','E_NROG   ','E_NROG   ','E_ALD    ','E_ALD    ','E_ALD    ',  &
+	   'E_ALD    ','E_ALD    ','E_ALD    ','E_ALD    ','E_MACR   ','E_ALD    ','E_FFCO2  '/
+
+! translation factor from NAM variable to NAMRAD variable: see TRANAL2R
+     DATA FAC /  &
+              1.00,       0.90,      0.092,      0.008,       1.00,       1.00,       1.00,       1.00,       1.00,  &
+              1.11,       0.97,       1.00,       1.00,       1.00,       1.00,       1.00,       1.00,       1.00,  &
+              1.00,       1.00,       1.00,       1.00,       1.00,       1.61,       1.61,       1.00,       1.00,  &
+              1.00,       1.00,       1.00,       1.00,       1.00,       1.00,       1.00, &
+              1.00,       1.00,       1.00,       1.00,       1.00,       1.00,       0.40,       0.29,  &
+              1.11,       0.97,       1.00,       1.00,       1.00,       1.00,       0.57,       1.00,  &
+              1.00,       1.00,       1.00,       0.20,       0.80,       0.20,       0.80,  &
+              0.20,       0.80,       0.20,       0.80,       0.20,       0.80,       0.20,       0.80,  &
+              1.00,       1.00,       1.00,       1.00,       1.00,       1.00,       1.00,       0.29,  &
+			  0.29,       0.29,       1.00,       1.00,       1.00,       1.00,       1.00,       1.00,  &
+			  1.00,       1.00,       1.00,       1.00,       1.00,       1.00,       1.00/
+
+! Molecular Weight factor of NAM variable: see TRANAL2R, primary must have MWT>1, Aerosol has MWT=1, VOC species have MWT=0
+     DATA MWT /  &
+                28,         46,         46,         46,         64,         17,         00,         00,         00,  &
+                00,         00,         00,         00,         00,         00,         00,         00,         00,  &
+                00,         00,         00,         00,         00,         00,         00,         00,         00,  &
+                00,         00,         00,         00,         00,         00,         00, &
+                00,         00,         00,         00,         00,         00,         00,         00,  &
+                00,         00,         00,         00,         00,         00,         00,         00,  &
+                00,         00,         00,         01,         01,         01,         01,  &
+                01,         01,         01,         01,         01,         01,         01,         01,  &
+                01,         44,         00,         00,         00,         00,         00,         00,  &
+				00,         00,         00,         00,         00,         00,         00,         00,  &
+				00,         00,         00,         00,         00,         00,         44/
+
+!
+! A total kludge placed here for the plume rise.  Give some vertical wind profile climatology for the domain.  Ignoring the buoyancy effects in
+!  the plume rise.
+!
+!
+! Elevation at grid cell top (m)
+!
+! Ravan vertical New grid structure for SENEX-13 runs 4/20/15 - new vert. grid case
+!    DATA   ZFA /0.0e+00,2.2514864e+01,4.6733549e+01,7.3501559e+01,1.0283810e+02,1.3560842e+02, &
+!      1.7268427e+02,2.1410779e+02,2.6078529e+02,3.1280621e+02,3.7285751e+02,4.4113006e+02, &
+!      5.1797487e+02,6.0729197e+02,7.0849370e+02,8.2469155e+02,9.5638180e+02,1.1059935e+03, &
+!      1.2751969e+03,1.4658486e+03,1.6800447e+03/
+     DATA REFWZ/0.,16.8,50.5,84.3,127.,170.,256.,343.,476.,610.,791., &
+      883.,975.,1160.,1350.,1644.,1943.,2252.,2677.,3010.,3350./
+
+!      K_ht hr1   hr2   hr3   hr4   hr5   hr6   hr7   hr8   hr9  hr10  hr11  hr12  hr13  hr14  hr15  hr16  hr17  hr18  hr19  hr20  hr21  hr22  hr23  hr24
+!
+!        1         2         3         4         5         6         7         8         9         0         1         2         3 
+!23456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012
+    DATA WSPD /         &
+       4.27, 4.01, 4.16, 4.27, 4.30, 4.26, 4.20, 4.12, 4.11, 4.11, 4.15, 4.25, 4.44, 3.43, 3.61, 3.86, 4.12, 4.36, 4.62, 4.94, &
+       5.12, 5.21, 5.24, 5.12, 5.30, 5.62, 5.79, 5.96, 6.02, 5.96, 5.87, 5.74, 5.73, 5.70, 5.75, 5.85, 5.96, 4.51, 4.67, 4.93, &
+       5.26, 5.58, 5.95, 6.40, 6.70, 6.88, 6.99, 6.91, 6.14, 6.82, 7.07, 7.27, 7.36, 7.28, 7.19, 7.02, 6.99, 6.92, 6.93, 7.02, &
+       7.08, 5.46, 5.43, 5.64, 5.97, 6.31, 6.72, 7.24, 7.60, 7.88, 8.09, 8.12, 6.87, 7.73, 8.08, 8.36, 8.45, 8.37, 8.28, 8.09, &
+       8.03, 7.92, 7.87, 7.91, 7.91, 6.34, 6.15, 6.22, 6.50, 6.82, 7.25, 7.80, 8.22, 8.58, 8.88, 9.04, 7.53, 8.46, 8.87, 9.22, &
+       9.34, 9.26, 9.16, 8.95, 8.86, 8.70, 8.60, 8.57, 8.51, 6.94, 6.75, 6.74, 6.94, 7.21, 7.61, 8.16, 8.62, 9.05, 9.43, 9.73, &
+       8.17, 9.20, 9.72,10.14,10.30,10.26,10.16, 9.92, 9.77, 9.55, 9.36, 9.25, 9.11, 7.42, 7.28, 7.38, 7.52, 7.65, 7.95, 8.44, &
+       8.92, 9.42, 9.92,10.38, 8.55, 9.65,10.28,10.81,11.03,11.02,10.92,10.65,10.44,10.17, 9.93, 9.77, 9.59, 7.72, 7.72, 7.95, &
+       8.29, 8.37, 8.35, 8.64, 9.07, 9.57,10.12,10.71, 8.74, 9.82,10.49,11.08,11.36,11.39,11.32,11.05,10.83,10.54,10.25,10.12, &
+      10.02, 7.89, 7.96, 8.21, 8.69, 8.89, 8.78, 8.88, 9.24, 9.71,10.26,10.89, 8.82, 9.84,10.50,11.11,11.41,11.43,11.33,11.02, &
+      10.75,10.44,10.18,10.14,10.25, 7.92, 8.09, 8.39, 8.93, 9.32, 9.34, 9.32, 9.59, 9.96,10.45,11.06, 8.86, 9.81,10.42,10.98, &
+      11.20,11.11,10.92,10.54,10.23, 9.91, 9.71, 9.77,10.02, 7.95, 8.20, 8.62, 9.23, 9.72, 9.93, 9.92,10.03,10.31,10.70,11.19, &
+       8.89, 9.74,10.28,10.76,10.88,10.72,10.46,10.07, 9.80, 9.55, 9.39, 9.50, 9.81, 8.09, 8.36, 8.83, 9.48,10.02,10.33,10.34, &
+      10.40,10.60,10.90,11.26, 8.90, 9.67,10.14,10.54,10.61,10.42,10.16, 9.79, 9.56, 9.34, 9.24, 9.40, 9.73, 8.19, 8.45, 8.94, &
+       9.63,10.21,10.56,10.58,10.65,10.79,11.02,11.31, 8.96, 9.56, 9.91,10.21,10.18, 9.96, 9.71, 9.39, 9.25, 9.12, 9.12, 9.33, &
+       9.69, 8.38, 8.63, 9.17, 9.91,10.54,10.91,11.01,11.03,11.12,11.22,11.40, 9.10, 9.50, 9.66, 9.84, 9.77, 9.58, 9.42, 9.23, &
+       9.27, 9.31, 9.36, 9.53, 9.83, 8.71, 8.98, 9.53,10.30,10.93,11.33,11.47,11.45,11.48,11.51,11.52, 9.45, 9.64, 9.60, 9.62, &
+       9.54, 9.44, 9.42, 9.39, 9.58, 9.74, 9.79, 9.89,10.08, 9.24, 9.49, 9.96,10.70,11.36,11.77,11.96,11.95,11.90,11.83,11.68, &
+      10.05,10.08, 9.90, 9.80, 9.72, 9.74, 9.90,10.02,10.28,10.45,10.47,10.52,10.63,10.05,10.23,10.54,11.15,11.76,12.14,12.28, &
+      12.32,12.30,12.21,11.97,10.66,10.66,10.50,10.37,10.32,10.42,10.66,10.81,11.05,11.22,11.25,11.29,11.35,10.99,11.08,11.20, &
+      11.62,12.10,12.37,12.44,12.52,12.62,12.62,12.43,11.40,11.53,11.45,11.42,11.43,11.50,11.68,11.77,11.98,12.21,12.33,12.40, &
+      12.46,12.17,12.18,12.08,12.23,12.44,12.54,12.61,12.84,13.13,13.33,13.34,12.21,12.47,12.43,12.47,12.51,12.53,12.63,12.70, &
+      12.95,13.26,13.44,13.56,13.64,13.37,13.36,13.07,12.91,12.82,12.71,12.74,13.07,13.52,13.93,14.19,12.76,13.18,13.21,13.32, &
+      13.40,13.43,13.54,13.64,13.97,14.32,14.53,14.68,14.72,14.37,14.37,14.05,13.78,13.56,13.31,13.17,13.42,13.87,14.33,14.73/
+!
+! 3-D species from input binary file - correspondence with output netcdf file done in manipufiles.f
+  integer               :: num3dnew
+  integer, parameter    :: kemit = 20
+  integer, parameter    :: KX = kemit, KP=KX+1
+! integer, parameter    :: kemit = 1
+! integer, parameter    :: Ntime_outf = 24  ! Number of time slices in output netcdf file
+     character (len=9), allocatable, dimension(:),save    :: var3dnew
+     character (len=80), allocatable, dimension(:),save    :: unit3dnew,desc3dnew
+     integer, allocatable, dimension(:)                    :: idvaro3dn
+!
+! 2-D species from input binary file - correspondence with output netcdf file done in manipufiles.f
+      integer, parameter :: num2dnew = 0
+      character (len=80), dimension(num2dnew),save    :: var2dnew,unit2dnew,desc2dnew
+      integer, dimension(num2dnew)                    :: idvaro2dn
+!!
+!     data var2dnew(p_flmfrc),desc2dnew(p_flmfrc),unit2dnew(p_flmfrc)/ & ! Tropical Forest veg frac
+!      'FLAM_FRAC','bbem2 flame fraction','?'/   ! flam_frac , bbem=2, from prep_chem_sour
+!
+! variables to be read from input netcdf and written to output netcdf, only real 3-D and 2-D variables allowed so far
+     integer, parameter :: num_rw = 2
+     character (len=20), dimension(num_rw),save    :: var_rw
+     data var_rw/'XLAT','XLONG'/  ! Variable list to trasfer directly from input to output
+
+     CONTAINS
+
+     SUBROUTINE  AL2RADM2
+
+ include 'netcdf.inc'
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     REAL, DIMENSION(NAL2DO,NRADM)  ::  TRANAL2R
+
+!
+! Variables for Point stack emissions
+!
+     real, allocatable, dimension(:)        ::  STKHGT, STKDIAM, STKTMP
+     real, allocatable, dimension(:)        ::  STKVEL, STKFLOW, XLNP, XLTP
+     integer, allocatable, dimension(:)     :: ISTATE, ICOUN, IRTYP
+
+!    CHARACTER (len=15), DIMENSION(IPOINT) ::  SITEID
+!    CHARACTER (len= 8), DIMENSION(IPOINT) ::  ERPTID, UNITID, PROCID
+
+     INTEGER     ::  IAREADO = 1
+     INTEGER     ::  IPOINDO = 1
+     INTEGER     ::  IFRACGR = 0        ! set to 1 if dx < 10 km
+
+     INTEGER     ::  KK, IHR
+     INTEGER     ::  I2, J2
+     INTEGER     ::  IEMAX, JEMAX, IMAX
+     INTEGER     ::  IDHMX, KSTAK, KSTKDHM, KBOT, KTOP
+
+     REAL        ::  XX, YY
+     REAL        ::  EMAX, XLTMX, XLNMX
+     REAL        ::  DHM, DHMX, TOP, BOT, ZDIF, FRC
+
+  integer                                          :: cdfid, rcode
+  integer                                          :: ncod,rcodeo
+  integer                                          :: istart(4), iend(4)  ! start,end indexes for 2-D netcdf output arrays
+  character (len=120)   :: WRFINFIL,ONRDFIL,NONRDFIL,AREAFIL,VCPFIL,COOKFIL,OGFIL,CAMSFIL,POINFIL,file_out
+  character (len=9)   :: c9
+  integer             :: ICAS,hr_offset,ncf_pnt,ncfid(7)
+
+
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!     IF ( dx .LE. 10000. .and. IFRACGR .EQ. 0 ) then
+!       WRITE(*,*) ' ERROR: grid dumping no recommended for grid spacing under 10 km '
+!       WRITE(*,*) ' Set IFRACGR = 1 '
+!       STOP 999
+!     ENDIF
+
+     LDEV=17
+     OPEN(LDEV,FILE='al2radm2_'//HR_range//'.outp')
+     L1P=LNBLNK(POINDIR)
+     WRITE(LDEV,*)'Geometric grid fraction flag = ',IFRACGR
+!
+! Read point realease info file, print information for maximum stack height in inventory
+!
+     IF(IPOINDO.EQ.1)THEN
+     WRITE(LDEV,'(/30A1,A,30A1)')('-',I=1,30),' Release point info file ',('-',I=1,30)
+       CALL GETENV ('POINFIL',POINFIL)
+    rcode = nf_open(trim(POINFIL)//'TotlPoint_'//HR_range//'.nc', NF_NOWRITE, ncf_pnt )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncpnt)=',ncpnt
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+    rcode = nf_inq_dim(ncf_pnt, 1, 'ROW', IPOINT)
+    istart=1
+    iend=1
+    iend(1)=IPOINT
+    allocate ( EMP(IPOINT))
+    allocate ( STKHGT(IPOINT));N=ncvid(ncf_pnt,'STKht',rcode);CALL NCVGT(ncf_pnt,N,istart,iend,STKHGT,RCODE)
+    allocate ( STKDIAM(IPOINT));N=ncvid(ncf_pnt,'STKdiam',rcode);CALL NCVGT(ncf_pnt,N,istart,iend,STKDIAM,RCODE)
+    allocate ( STKTMP(IPOINT));N=ncvid(ncf_pnt,'STKtemp',rcode);CALL NCVGT(ncf_pnt,N,istart,iend,STKTMP,RCODE)
+    allocate ( STKVEL(IPOINT));N=ncvid(ncf_pnt,'STKve',rcode);CALL NCVGT(ncf_pnt,N,istart,iend,STKVEL,RCODE)
+    allocate ( STKFLOW(IPOINT));N=ncvid(ncf_pnt,'STKflw',rcode);CALL NCVGT(ncf_pnt,N,istart,iend,STKFLOW,RCODE)
+    allocate ( XLNP(IPOINT));N=ncvid(ncf_pnt,'XLONG',rcode);CALL NCVGT(ncf_pnt,N,istart,iend,XLNP,RCODE)
+    allocate ( XLTP(IPOINT));N=ncvid(ncf_pnt,'XLAT',rcode);CALL NCVGT(ncf_pnt,N,istart,iend,XLTP,RCODE)
+!   allocate ( ISTATE(IPOINT))
+!   allocate ( ICOUN(IPOINT))
+    allocate ( IRTYP(IPOINT))
+     SHGTMX=-1.E20
+     DO I=1,IPOINT
+        IF(STKHGT(I).GT.SHGTMX)THEN
+          IMAX=I
+          SHGTMX=STKHGT(I)
+        ENDIF
+     ENDDO
+
+     WRITE(LDEV,*)'Max stack ht, Record number of max= ',IMAX
+!    WRITE(LDEV,*)'Max stack ht, FIPS State= ',ISTATE(IMAX)
+!    WRITE(LDEV,*)'Max stack ht, FIPS County= ',ICOUN(IMAX)
+!    WRITE(LDEV,*)'Max stack ht, Site ID= ',SITEID(IMAX)
+!    WRITE(LDEV,*)'Max stack ht, Report ID= ',ERPTID(IMAX)
+!    WRITE(LDEV,*)'Max stack ht, Unit ID= ',UNITID(IMAX)
+!    WRITE(LDEV,*)'Max stack ht, Process ID= ',PROCID(IMAX)
+     WRITE(LDEV,*)'Max stack ht, Release Type= ',IRTYP(IMAX)
+     WRITE(LDEV,*)'Max stack ht, Height= ',STKHGT(IMAX),' meter'
+     WRITE(LDEV,*)'Max stack ht, Stack Diameter= ',STKDIAM(IMAX),' meter'
+     WRITE(LDEV,*)'Max stack ht, Exit Temperature= ',STKTMP(IMAX),' deg K'
+     WRITE(LDEV,*)'Max stack ht, Flow velocity= ',STKVEL(IMAX),' m/s'
+     WRITE(LDEV,*)'Max stack ht, Flow rate= ',STKFLOW(IMAX),' m(3)/s'
+     WRITE(LDEV,*)'Max stack ht, Longitude= ',XLNP(IMAX)
+     WRITE(LDEV,*)'Max stack ht, Latitude= ',XLTP(IMAX)
+     CALL FLUSH(LDEV)
+     ENDIF ! Endif test on IPOINDO=1
+!
+
+     IF(IAREADO .NE. 0) THEN
+!
+! Read Cross point and Dot point Latitude and Longitudes, print corners
+!
+        CALL MAPCFEPA ! Call to get 4km EPA lat/lons and corner lat/lons
+        WRITE(LDEV,'(A,2F11.5)')'(1,1) Dot Point epa4km Lat,Lon= ',XLATD(1,1),XLOND(1,1)
+        WRITE(LDEV,'(2(A,I4),A,2F11.5)')'(',IP,',',JP,') Dot Point epa4km Lat,Lon= ',XLATD(IP,JP),XLOND(IP,JP)
+        WRITE(LDEV,'(A,2F11.5)')'(1,1) Cross Point epa4km Lat,Lon= ',XLATX(1,1),XLONX(1,1)
+        WRITE(LDEV,'(2(A,I4),A,2F11.5)')'(',IX,',',JX,') Cross Point epa4km Lat,Lon= ',XLATX(IX,JX),XLONX(IX,JX)
+!       STOP'888'
+!
+     ENDIF !END of IF(IAREADO .NE. 0) THEN
+! Read in input file for attributes to otput file
+       CALL GETENV ('WRFINFIL',WRFINFIL)
+    rcode = nf_open(trim(WRFINFIL), NF_NOWRITE, cdfid )
+  if( rcode == 0) then
+    write(6,*) 'wrfinput_d01 file opened OK,cdfid=',cdfid
+  else
+    write(6,*) ' error opening netcdf file ',trim(WRFINFIL)
+  endif
+! Create output netcdf files
+   file_out='wrfchemi_'//HR_range(1:2)//'z_d01'
+   write(*,*)'Output filename= ',file_out
+   write(*,*)'nf_netcdf4= ',nf_netcdf4
+   rcodeo = nf_create(trim(file_out), nf_netcdf4, ncod )
+   write(*,*)'On file create, rcodeo=',rcodeo
+   num3dnew=NRADM
+    write(6,*)num3dnew,' matrices in wrfchemi file'
+    if (allocated(desc3dnew)) deallocate(desc3dnew)
+    if (allocated(unit3dnew)) deallocate(unit3dnew)
+    if (allocated(idvaro3dn)) deallocate(idvaro3dn)
+    allocate ( desc3dnew(num3dnew))
+    allocate ( unit3dnew(num3dnew))
+    allocate ( idvaro3dn(num3dnew))
+    do i=1,num3dnew
+    c9=ENAME(i)
+    desc3dnew(i)='Hourly EMISSIONS'
+    unit3dnew(i)='mol km^-2 hr^-1'
+    if(c9(3:4).EQ.'PM'.OR.c9(3:4).EQ.'EC'.OR.c9(3:5).EQ.'SO4'.OR.c9(3:5).EQ.'NO3'.OR.c9(3:5).EQ.'ORG')THEN
+    unit3dnew(i)='ug m^-2 s^-1'
+    endif
+    write(6,*)i,ENAME(i),trim(desc3dnew(i)),trim(unit3dnew(i))
+    enddo
+  call wrf_xtrct (cdfid,ncod)
+  WRITE(LDEV,*)'NRADM,KXwrf,IX2,JX2,DX=',NRADM,KXwrf,IX2,JX2,DX;CALL FLUSH(LDEV)
+     allocate ( EM2D(IX2,JX2))
+     allocate ( EM3RD(IX2,JX2,KX,NRADM))
+     allocate ( EM3RS(IX2,JX2,KX))
+         CALL MAPCF(1.5,1.5,XLTMX,XLNMX)
+         WRITE(LDEV,*)' Center of 1,1 grid = ',XLTMX,XLNMX
+         CALL MAPCF(IX2+.5,JX2+.5,XLTMX,XLNMX)
+         WRITE(LDEV,*)' Center of ',IX2,JX2,' grid = ',XLTMX,XLNMX
+! Read in table for mapping AL emissions into RADM2 emissions
+!
+     TRANAL2R=0.
+     DO KK=1,NAMFILE2
+     DO K=1,NAL2DO
+       IF( NAM(KK) .EQ. NAM2EM(K)) THEN
+       DO J=1,NRADM
+        IF(NAMRAD(KK) .EQ. ENAME(J))THEN
+           IF(MWT(KK).EQ.0)THEN
+              TRANAL2R( K, J ) = FAC(KK)/(1.E-3*DX)**2  ! Units of VOC in mole/hr --> mole/km(2)/hr
+           ELSEIF(MWT(KK).EQ.1)THEN    ! Units of aerosol in ton/hr --> microgram/m(2)/sec
+!             TRANAL2R( K, J ) = FAC(KK)*9.07184E11 /DX/DX/3600.
+              TRANAL2R( K, J ) = FAC(KK)*1.E12 /DX/DX/3600. ! 2/2/21 metric ton per hour input
+           ELSE  ! Units of primary species ton/hr --> mole/km(2)/hr
+              TRANAL2R( K, J ) = FAC(KK)*9.07184E5/FLOAT(MWT(KK))/(1.E-3*DX)**2
+              TRANAL2R( K, J ) = FAC(KK)*1.E6/FLOAT(MWT(KK))/(1.E-3*DX)**2 ! 2/2/21 metric ton per hour input
+           ENDIF
+        ELSE
+!           WRITE(LDEV,*)NAMRAD,' RADM name Not found, stopping'
+!           STOP888
+        ENDIF
+       ENDDO
+!       ELSE
+!         WRITE(LDEV,*)NAM,' Not found in table emiss. list, stopping'
+!         STOP888
+       ENDIF
+     ENDDO
+     ENDDO
+    READ(HR_range(1:2),'(I2.2)')hr_offset
+       CALL GETENV ('ONRDFIL',ONRDFIL)
+       CALL GETENV ('NONRDFIL',NONRDFIL)
+       CALL GETENV ('AREAFIL',AREAFIL)
+	   CALL GETENV ('VCPFIL',VCPFIL)
+	   CALL GETENV ('COOKFIL',COOKFIL)
+       CALL GETENV ('OGFIL',OGFIL)
+       CALL GETENV ('CAMSFIL',CAMSFIL)
+    rcode = nf_open(trim(ONRDFIL)//'onroad_'//HR_range//'.nc', NF_NOWRITE, ncfid(1) )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncfid(1)=',ncfid(1)
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+    rcode = nf_open(trim(NONRDFIL)//'offroad_'//HR_range//'.nc', NF_NOWRITE, ncfid(2) )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncfid(2)=',ncfid(2)
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+    rcode = nf_open(trim(AREAFIL)//'TotlArea_noFOG_noVCP_'//HR_range//'.nc', NF_NOWRITE, ncfid(3) )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncfid(3)=',ncfid(3)
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+	rcode = nf_open(trim(VCPFIL)//'TotlAreaVCP_'//HR_range//'.nc', NF_NOWRITE, ncfid(4) )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncfid(4)=',ncfid(4)
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+	rcode = nf_open(trim(COOKFIL)//'Cooking_Mean_'//HR_range//'.nc', NF_NOWRITE, ncfid(5) )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncfid(5)=',ncfid(5)
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+    rcode = nf_open(trim(CAMSFIL)//'CAMSv4.2_'//HR_range//'.nc', NF_NOWRITE, ncfid(6) )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncfid(6)=',ncfid(6)
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+	rcode = nf_open(trim(OGFIL)//'FOG_'//HR_range//'.nc', NF_NOWRITE, ncfid(7) )
+	if( rcode == 0) then
+		write(6,*) 'emission file opened OK,ncfid(7)=',ncfid(7)
+	else
+		write(6,*) ' Error opening emission netcdf file '
+		STOP'777'
+	endif
+    write(6,*)'ncfid=',ncfid
+  
+  
+    endhr = min(24,starthr+ maxhr)
+! Loop over all 24 hours
+!   DO IHR=1,24                   ! DO 172 LOOP      
+!   DO IHR=starthr,maxhr                ! DO 172 LOOP
+    DO IHR=1,Ntime_outf
+       EM3RD=0.
+
+       IF(IAREADO .NE. 0) THEN
+!
+! Read UTC Hour Ozone Season Day Average (mole/hr) speciated VOC emissions,
+! print sums, maximums, location of maximums in grid space and lat,lon
+!
+         WRITE(LDEV,'(/30A1,A,I2.2,A,30A1)')('-',I=1,30),' Hr_',IHR+hr_offset, &
+                  ' Area em mole/hr or ton/hr (prim+asol) ',('-',I=1,30)
+         WRITE(LDEV,'(A,4X,A,7X,A,6X,A,2X,A,2X,A,4X,A)')'ALemisn','Total', &
+                  'Max','I-Max','J-Max','Lat-Max','Lon-Max'
+
+         istart=1
+         iend(1)=IX
+         iend(2)=JX
+         iend(3)=1
+         istart(3)=IHR
+         DO ISP=1,NAL2DO
+           ETOT = 0.
+           EM2D=0.
+           EMT=0.
+      CHSPEC=NAM2EM(ISP)
+	  
+	  CALL NCPOPT(NCVERBO)
+      DO ICAS=1,7
+!     write(6,*)'ICAS= ',ICAS,' ncfid=',ncfid(icas)
+!     call flush(6)
+      
+! ICAS 1 is onroad and ICAS2 is offroad so for files other than these just use CO2
+	  IF (ICAS.GT.2 .AND. trim(CHSPEC)=="ffCO2") THEN
+		N = ncvid(ncfid(ICAS),"CO2",rcode)
+!		write(6,*) 'writing ffCO2 for area, ICAS=',ICAS
+	  ELSE
+		N = ncvid(ncfid(ICAS),trim(CHSPEC),rcode)
+	  ENDIF
+	  
+      
+!     write(6,*)'Before ',trim(CHSPEC),',ihr,cdfid,N,RCODE=',ihr,ncfid(ICAS),N,RCODE
+!     call flush(6)
+!     write(6,*)istart
+!     write(6,*)iend
+
+! If the variable exists then add on, else add zeros
+      IF ( rcode==-49 ) THEN  
+		  write(6,*) 'Variable missing, adding zeros for CHSPEC=',CHSPEC
+		  EMT3=0.
+		  EMT(:,:)= EMT(:,:)+EMT3(:,:,1)
+		  
+		  
+	  ELSE
+	      EMT3=0.
+		  CALL NCVGT(ncfid(ICAS),N,istart,iend,EMT3,RCODE)
+	!    write(6,*)'After ',trim(CHSPEC),',ihr,cdfid,N,RCODE=',ihr,ncfid(ICAS),N,RCODE
+	!    call flush(6)
+		  EMT(:,:)=EMT(:,:)+EMT3(:,:,1)
+	  ENDIF
+	  write(6,*)'ICAS= ',ICAS,' EMT3_SUM=',SUM(EMT3)
+      ENDDO ! Endof DO ICAS=1,6
+	  CALL NCPOPT(NCVERBOS+NCFATAL)
+!
+!         IF(CHSPEC(1:L1D).EQ.'HC01')THEN
+!         CALL EDGARghg(CHSPEC,1) ! Switch=1 means hourly emiss, Swith=0 means daily emiss
+!         ENDIF
+     IF(IFRACGR.EQ.1)THEN   ! IFRACGR=1 means no griddumping of area emissions - call REGRID
+          CALL REGRID
+     ELSE  ! IFRACGR not= 1 means griddumping of area emissions
+! apportion 4km grid emissions into wrf-27km grids by simple grid dumping
+           DO I=1,IX
+           DO J=1,JX
+             CALL LLXY(XLATX(I,J),XLONX(I,J),XX,YY)
+             IF(XX .GE. 1 .AND. XX.LE.IX2 .AND. YY.GE.1 .AND. YY.LE.JX2) THEN
+               I2=INT(XX)
+               J2=INT(YY)
+               EM2D(I2,J2)=EM2D(I2,J2)+EMT(I,J)
+             ENDIF
+           ENDDO
+           ENDDO
+      ENDIF   ! end of IFRACGR=1 or not test
+
+!       Get total emission and max emission information
+           EMAX = -1.E20
+           CALL EMSUM(ETOT,EMAX,IEMAX,JEMAX)
+
+!       Get approximate lat,lon of center of grid point
+           CALL MAPCF(FLOAT(IEMAX)+.5,FLOAT(JEMAX)+.5,XLTMX,XLNMX)
+
+!       Get real name, depending on primary, VOC or PM2.5
+           CHSCRT = NAM2EM(ISP)
+           IF(CHSCRT(1:2).EQ.'HC')THEN
+             READ(CHSCRT(3:4),'(I2)')IDEX
+             CHSPEC=NAMVOC(IDEX)
+           ELSEIF(CHSCRT(1:3).EQ.'PM0')THEN
+             READ(CHSCRT(3:4),'(I2)')IDEX
+             CHSPEC=NAMPM2(IDEX)
+           ELSE
+             CHSPEC=CHSCRT
+           ENDIF
+! Output Total and Max info
+           WRITE(LDEV,'(A9,1P2E11.3,2I6,0P2F11.5)')CHSPEC,ETOT,EMAX,IEMAX,JEMAX,XLTMX,XLNMX
+
+! Partition Emissions of this species into wrf-RADM2 emission
+           DO N=1,NRADM
+           DO J=1,JX2
+           DO I=1,IX2
+             EM3RD(I,J,1,N)=EM3RD(I,J,1,N)+EM2D(I,J)*TRANAL2R(ISP,N)
+           ENDDO
+           ENDDO
+           ENDDO
+         ENDDO   ! End of ISP loop
+
+! Get total emission and max emission information for RADM emissions
+         WRITE(LDEV,'(/30A1,A,I2.2,A,30A1)')('-',I=1,30),' Hr_',IHR+hr_offset, &
+                  ' RADM2 Area em mole/km2/hr or ug/m2/sec (asol)',('-',I=1,30)
+         WRITE(LDEV,'(A,4X,A,7X,A,6X,3(A,2X),A,4X,A)')'RADM em','Total', &
+                  'Max','I-Max','J-Max','K-Max','Lat-Max','Lon-Max'
+
+         DO N=1,NRADM
+         ETOT = 0.
+            EMAX = -1.E20
+            CALL EMSUM3D(ETOT,EMAX,IEMAX,JEMAX,KEMAX,N)
+            CALL MAPCF(FLOAT(IEMAX)+.5,FLOAT(JEMAX)+.5,XLTMX,XLNMX)
+            WRITE(LDEV,'(A9,1P2E11.3,3I6,0P2F11.5)')ename(N),ETOT,EMAX,IEMAX,JEMAX,KEMAX,XLTMX,XLNMX
+         ENDDO
+       ENDIF  ! END IAREADO IF BLOCK
+
+     IF(IPOINDO.EQ.1)THEN
+! Begin point stack emissions processing for this hour
+!
+! Read UTC Hour 20, Ozone Season Day Average (mole/hr) speciated VOC emissions,
+! print sums, maximums, location of maximums in grid space and lat,lon
+!
+       WRITE(LDEV,'(/30A1,A,I2.2,A,30A1)')('-',I=1,30),' Hr_',IHR+hr_offset,  &
+               ' Point em mole/hr or ton/hr (prim+asol) ',('-',I=1,30)
+       WRITE(LDEV,'(A,4X,A,7X,A,6X,A,2X,A,2X,A,4X,A)')'ALpoint','Total',   &
+               'Max','I-Max','J-Max','Lat-Max','Lon-Max'
+
+       istart=1
+       iend=1
+       iend(1)=IPOINT
+       istart(2)=IHR
+	   CALL NCPOPT(NCVERBO)
+       DO ISP=1,NAL2DO
+         CHSPEC=NAM2EM(ISP)
+!    IF(trim(CHSPEC).NE.'CO2')THEN
+	   IF (trim(CHSPEC)=="ffCO2") THEN
+		 N = ncvid(ncf_pnt,"CO2",rcode)
+!    	 write(6,*) 'writing ffCO2 for point'
+	   ELSE
+		 N = ncvid(ncf_pnt,trim(CHSPEC),rcode)
+	   ENDIF
+       
+! If the variable exists set EMP with it, else set EMP to zero
+	   IF ( rcode==-49 ) THEN
+	      write(6,*) 'Variable missing, adding zeros for CHSPEC=',CHSPEC
+		  EMP=0.
+		  write(6,*) 'rcode=',rcode
+	   ELSE
+	      CALL NCVGT(ncf_pnt,N,istart,iend,EMP,RCODE)
+	   ENDIF
+	   
+       ETOT = 0.
+! 3/22/15 ADDPOIN reads in additional point emission file
+!         CALL ADDPOIN(ISP,IHR,CHSPEC)
+! 2/6/19  ADDepa14POIN reads in EPA-14/egu18 emission files
+
+!         Get total emission and max emission information
+         EMAX = -1.E20
+         CALL EMSUMP(ETOT,EMAX,IEMAX)
+
+!         Output Total and Max info
+         CHSCRT=NAM2EM(ISP)
+         IF(CHSCRT(1:2).EQ.'HC')THEN
+           READ(CHSCRT(3:4),'(I2)')IDEX
+           CHSPEC=NAMVOC(IDEX)
+         ELSEIF(CHSCRT(1:3).EQ.'PM0')THEN
+           READ(CHSCRT(3:4),'(I2)')IDEX
+           CHSPEC=NAMPM2(IDEX)
+         ELSE
+           CHSPEC=CHSCRT
+         ENDIF
+         WRITE(LDEV,'(A9,1P2E11.3,I7,0P2F11.5)')CHSPEC,ETOT,EMAX,IEMAX,XLTP(IEMAX),XLNP(IEMAX)
+
+! apportion 4km grid emissions into wrf-27km grids by simple grid dumping
+
+        DHMX = 0.
+        DO I=1,IPOINT
+          CALL LLXY(XLTP(I),XLNP(I),XX,YY)
+          IF(XX .GE. 1 .AND. XX.LE.IX2 .AND. YY.GE.1 .AND. YY.LE.JX2) THEN
+            I2=INT(XX)
+            J2=INT(YY)
+! Find K level of emissions
+            K=1
+            ZTOP=REFWZ(K)
+            DO WHILE (ZTOP.LE.STKHGT(I))
+            K=K+1
+             IF(K.GT.KWINP)THEN
+             WRITE(LDEV,*)'Stack hght > Wind Climatology Ht, stopping'
+             STOP'7777'
+             ENDIF
+            ZTOP=REFWZ(K)   
+            ENDDO
+            KSTAK=MAX(1,K-1)
+            DHM   = 3.0 * STKDIAM(I) * STKVEL(I) / WSPD(IHR,KSTAK)
+            IF(DHM.GT.DHMX)THEN
+               DHMX=DHM
+               IDHMX=I
+               KSTKDHM=KSTAK
+            ENDIF
+            TOP = STKHGT(I) + 1.5 * DHM
+            BOT = STKHGT(I) + 0.5 * DHM
+
+            DO K=KX,1,-1
+               IF (ZFA(I2,J2,K+1).GT.BOT) THEN
+                 KBOT=K
+               ENDIF
+            ENDDO
+
+            DO K=KX,1,-1
+              IF(ZFA(I2,J2,K+1) .GT. TOP)THEN
+                KTOP=K
+              ENDIF
+            ENDDO
+
+            IF( KBOT .GE. KTOP) THEN
+              KTOP = KBOT + 1
+            ENDIF
+            
+            ! clyu added for a dimension out of range bug
+            IF( KTOP .GT. KX) THEN
+              KTOP = KX
+            ENDIF
+
+           ZDIF = ZFA(I2,J2,KTOP+1) - ZFA(I2,J2,KBOT)
+! Partition Emissions of this species into wrf-RADM2 emission
+           DO K=KBOT,KTOP
+             FRC=(ZFA(I2,J2,K+1)-ZFA(I2,J2,K))/ZDIF
+             DO N=1,NRADM
+               EM3RD(I2,J2,K,N)=EM3RD(I2,J2,K,N)+EMP(I)*TRANAL2R(ISP,N)*FRC
+             ENDDO
+           ENDDO
+          ENDIF  ! Endo f 1<=I<=IX2,1<=J<=JX2 test
+        ENDDO  ! I=1,IPOINT loop
+!        ENDIF ! END of(CHSPEC(1:L1D).NE.'CO2'.AND.CHSPEC(1:L1D).NE.'CH4')THEN
+       ENDDO   ! End of ISP loop
+	   CALL NCPOPT(NCVERBOS+NCFATAL)
+       WRITE(LDEV,'(/30A1,A,I2.2,A,30A1)')('-',I=1,30),' Hr_',IHR+hr_offset, &
+              ' RADM2 Point+Area em mole/km2/hr or ug/m2/sec (asol)',('-',I=1,30)
+       WRITE(LDEV,'(A,4X,A,7X,A,6X,3(A,2X),A,4X,A)')'RADM em','Total','Max', &
+             'I-Max','J-Max','K-Max','Lat-Max','Lon-Max'
+     ENDIF ! Endif test on IPOINDO=1
+
+         istart=1
+         iend(1)=IX2
+         iend(2)=JX2
+         iend(3)=KX
+         iend(4)=1
+         istart(4)=IHR
+       DO N=1,NRADM
+       ETOT = 0.
+         EMAX = -1.E20
+         CALL EMSUM3D(ETOT,EMAX,IEMAX,JEMAX,KEMAX,N)
+         CALL MAPCF(FLOAT(IEMAX)+.5,FLOAT(JEMAX)+.5,XLTMX,XLNMX)
+         IF(IPOINDO.EQ.1)THEN
+         WRITE(LDEV,'(A9,1P2E11.3,3I6,0P2F11.5)')ename(N),ETOT,EMAX,IEMAX,JEMAX,KEMAX,XLTMX,XLNMX
+         ENDIF
+!         Write out 3-D emission arrays to unformatted file
+      K = ncvid(ncod,trim(ename(N)),rcodeo)
+      EM3RS(:,:,:)=EM3RD(:,:,:,N)
+      rcodeo = NF_PUT_VARA_REAL( ncod,K,istart,iend,EM3RS)
+
+       ENDDO  ! end of N=1,NRADM loop for writes
+
+     IF(IPOINDO.EQ.1)THEN
+       I=IDHMX
+       WRITE(LDEV,*)'DHMX= ',DHMX,' IDHMX= ',I,' KSTK= ',KSTKDHM
+!      WRITE(LDEV,55)ISTATE(I),ICOUN(I),SITEID(I),ERPTID(I),UNITID(I), PROCID(I), &
+!                 IRTYP(I),STKHGT(I),STKDIAM(I),STKTMP(I),STKVEL(I), &
+!                 STKFLOW(I),XLNP(I),XLTP(I)
+     ENDIF ! Endif test on IPOINDO=1
+     CALL FLUSH(LDEV)
+
+     END DO      ! END IHR=1,24 LOOP, OR DO 172 LOOP
+      rcodeo = nf_close(ncod)
+     CLOSE(LDEV)
+     END SUBROUTINE  AL2RADM2
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     SUBROUTINE EMSUM(ETOT,EMAX,IEMAX,JEMAX)
+!     Calculate total and max
+!     EMAX=-1.E25
+!     ETOT=0.
+     DO I=1,IX2
+     DO J=1,JX2
+       ETOT=ETOT+EM2D(I,J)
+       IF(EM2D(I,J).GT.EMAX)THEN
+         EMAX=EM2D(I,J)
+         IEMAX=I
+         JEMAX=J
+       ENDIF
+     ENDDO
+     ENDDO
+
+     RETURN
+     END SUBROUTINE  EMSUM
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     SUBROUTINE EMSUM3D(ETOT,EMAX,IEMAX,JEMAX,KEMAX,N)
+!     Calculate total and max
+!     EMAX=-1.E25
+!     ETOT=0.
+     DO I=1,IX2
+     DO J=1,JX2
+     DO K=1,KX
+       ETOT=ETOT+EM3RD(I,J,K,N)
+       IF(EM3RD(I,J,K,N).GT.EMAX)THEN
+         EMAX=EM3RD(I,J,K,N)
+         IEMAX=I
+         JEMAX=J
+         KEMAX=K
+       ENDIF
+     ENDDO
+     ENDDO
+     ENDDO
+
+     RETURN
+     END SUBROUTINE  EMSUM3D
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     SUBROUTINE EMSUMP(ETOT,EMAX,IEMAX)
+!     Calculate total and max
+!     EMAX=-1.E25
+!     ETOT=0.
+     DO I=1,IPOINT
+       ETOT=ETOT+EMP(I)
+       IF(EMP(I).GT.EMAX)THEN
+         EMAX=EMP(I)
+         IEMAX=I
+       ENDIF
+     ENDDO
+     RETURN
+     END SUBROUTINE  EMSUMP
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     SUBROUTINE MAPCF (XI,YJ,XLAT,XLON)
+     USE map_utils
+     REAL xlat,xlon,XI,YJ
+     REAL xloc,yloc
+     INTEGER, SAVE :: ICALLS; data ICALLS/0/
+  TYPE(proj_info)             :: proj
+     IF(ICALLS.EQ.0)THEN
+     user_dlat = (180./PI)*dx/earth_radius_m
+     user_dlon = user_dlat
+         WRITE(6,*)'proj_num=',proj_num
+         WRITE(6,*)'user_dlat=',user_dlat
+         WRITE(6,*)'user_dlon=',user_dlon
+         WRITE(6,*)'truelat1=',truelat1
+         WRITE(6,*)'truelat2=',truelat2
+         WRITE(6,*)'stdlon=',stdlon
+         WRITE(6,*)'lat1=',lat1
+         WRITE(6,*)'lon1=',lon1
+         WRITE(6,*)'user_pole_lat=',user_pole_lat
+         WRITE(6,*)'user_pole_lon=',user_pole_lon
+         WRITE(6,*)'knowni=',knowni
+         WRITE(6,*)'knownj=',knownj
+         WRITE(6,*)'dx=',dx
+         WRITE(6,*)'earth_radius_m=',earth_radius_m
+         CALL FLUSH(6)
+     ENDIF
+! get projection specs for WPS
+  if(proj_num.EQ.6)then ! For Cassinni grid, WPS routines blow up if truelat1,truelat2 set
+         call map_set(proj_num, proj, &
+                      latinc=user_dlat, &
+                      loninc=user_dlon, &
+                      stdlon=stdlon, &
+                      lat1=lat1, &
+                      lon1=lon1, &
+                      lat0=user_pole_lat, &
+                      lon0=user_pole_lon, &
+                      knowni=knowni, &
+                      knownj=knownj, &
+                      dx=dx, &
+                      r_earth=earth_radius_m)
+  else
+         call map_set(proj_num, proj, &
+                      latinc=user_dlat, &
+                      loninc=user_dlon, &
+                      truelat1=truelat1, &
+                      truelat2=truelat2, &
+                      stdlon=stdlon, &
+                      lat1=lat1, &
+                      lon1=lon1, &
+                      lat0=user_pole_lat, &
+                      lon0=user_pole_lon, &
+                      knowni=knowni, &
+                      knownj=knownj, &
+                      dx=dx, &
+                      r_earth=earth_radius_m)
+  endif
+!     xlat=-10.5906    ! Lower Left cross point of RAPchem domain
+!     xlon=-139.0858   ! Lower Left cross point of RAPchem domain
+! CALL latlon_to_ij(proj, xlat, xlon, xloc, yloc)
+!     WRITE(LDEV,'(A,4F13.6)')'xlat,xlon,XI,YJ',xlat,xlon,xloc,yloc
+!     xlat=46.59198  ! Upper Right cross point of RAPchem domain
+!     xlon=22.66101  ! Upper Right cross point of RAPchem domain
+! CALL latlon_to_ij(proj, xlat, xlon, xloc, yloc)
+!     WRITE(LDEV,'(A,4F13.6)')'xlat,xlon,XI,YJ',xlat,xlon,xloc,yloc
+!     CALL FLUSH(LDEV)
+!    ENDIF
+  CALL ij_to_latlon(proj, XI, YJ, xlat, xlon)
+     ICALLS=ICALLS+1
+     END SUBROUTINE  MAPCF
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     SUBROUTINE MAPCFEPA
+     USE map_utils
+     integer i,j
+  TYPE(proj_info)             :: proj
+! get projection specs for WPS
+         call map_set(1, proj, & ! Lambert Conformal
+                      truelat1=45., &
+                      truelat2=33., &
+                      stdlon=-97., &
+                      lat1=39.345936, &
+                      lon1=-97.841919, &
+                      lat0=90., &
+                      lon0=0., &
+                      knowni=667., & ! EPA (1332x1008) 4km grid center
+                      knownj=505., & ! EPA (1332x1008) 4km grid center
+                      dx=4000., &
+                      r_earth=6370997.) ! Earth radius used in EPA Lambert Conformal Projection
+  DO J=1,JX
+  DO I=1,IX
+  CALL ij_to_latlon(proj, FLOAT(I)+.5, FLOAT(J)+.5, xlatx(i,j), xlonx(i,j))
+  ENDDO
+  ENDDO
+  DO J=1,JP
+  DO I=1,IP
+  CALL ij_to_latlon(proj, FLOAT(I), FLOAT(J), xlatd(i,j), xlond(i,j))
+  ENDDO
+  ENDDO
+     END SUBROUTINE  MAPCFEPA
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     SUBROUTINE LLXY (XLAT,XLON,XI,YJ)
+     USE map_utils
+     REAL xlat,xlon,XI,YJ
+     INTEGER, SAVE :: ICALLS; data ICALLS/0/
+  TYPE(proj_info)             :: proj
+     IF(ICALLS.EQ.0)THEN
+     user_dlat = (180./PI)*dx/earth_radius_m
+     user_dlon = user_dlat
+     ENDIF
+  if(proj_num.EQ.6)then ! For Cassinni grid, WPS routines blow up if truelat1,truelat2 set
+         call map_set(proj_num, proj, &
+                      latinc=user_dlat, &
+                      loninc=user_dlon, &
+                      stdlon=stdlon, &
+                      lat1=lat1, &
+                      lon1=lon1, &
+                      lat0=user_pole_lat, &
+                      lon0=user_pole_lon, &
+                      knowni=knowni, &
+                      knownj=knownj, &
+                      dx=dx, &
+                      r_earth=earth_radius_m)
+  else
+         call map_set(proj_num, proj, &
+                      latinc=user_dlat, &
+                      loninc=user_dlon, &
+                      truelat1=truelat1, &
+                      truelat2=truelat2, &
+                      stdlon=stdlon, &
+                      lat1=lat1, &
+                      lon1=lon1, &
+                      lat0=user_pole_lat, &
+                      lon0=user_pole_lon, &
+                      knowni=knowni, &
+                      knownj=knownj, &
+                      dx=dx, &
+                      r_earth=earth_radius_m)
+  endif
+  CALL latlon_to_ij(proj, xlat, xlon, XI, YJ)
+     ICALLS=ICALLS+1
+     END SUBROUTINE  LLXY
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+      SUBROUTINE ADDAREA(ISP,IHR,SPC2DO)
+! 3/22/15 Read in Additional Area Emission Set, same format as original
+! 10/5/12 Read in Jerome Brioude inversion based inventory data for LA region from CalNex-2010 WP-3D data
+! based on input latitude and longitude dot-point information
+!     PARAMETER(JBMAX=3200)  ! Maximum number of records in Jerome Brioude Input File 10/5/12
+      INTEGER                        :: STATUS,SYSTEM
+      INTEGER             :: IPRNT=1
+      INTEGER             :: N,ICOUNT,NREC,IOGR,JOGR,NGRDS,NI,MI,II,ISP
+      REAL, DIMENSION(24)     :: EMB
+      REAL                ::  UNITCONV = 1017.9  ! EMB units must be in moles/hr
+      REAL                ::  XLATIN,XLONIN
+      REAL                ::  SUMJB,SUMNEI
+      REAL                ::  EMWGHT
+      INTEGER     :: IHR,LCH,L1A,L1D
+      CHARACTER (len= 10)             ::  SPC2DO  ! Input variable (e.g. 0608) mmdd of emission file to do
+      CHARACTER (len= 2)             ::  CHR
+      CHARACTER (len= 80)            ::  FILNAM
+      WRITE(CHR,'(I2.2)')IHR
+      LCH=LNBLNK(SPC2DO)
+      L1A=LNBLNK(AREADIR2)
+      FILNAM='HR'//CHR//'/'//SPC2DO(1:LCH)
+      L1D=LNBLNK(FILNAM)
+      IF(ISP.EQ.1.OR.ISP.EQ.NAL2DO)THEN
+      WRITE(LDEV,'(A,I2,1X,A)')'ADDAREA,IHR,FILNAM= ',IHR,FILNAM(1:L1D)
+      WRITE(*,'(A,I2,1X,A)')'ADDAREA,IHR,FILNAM= ',IHR,FILNAM(1:L1D)
+      CALL FLUSH(LDEV)
+      CALL FLUSH(6)
+      ENDIF
+      OPEN(8,FILE=AREADIR2(1:L1A)//FILNAM) ! Sector specific files made by Stu
+          STATUS=SYSTEM('rm -f scratem*')
+          STATUS=SYSTEM('cp '//AREADIR2(1:L1A)//FILNAM(1:L1D)//'.gz scratem.gz')
+          STATUS=SYSTEM('gunzip scratem')
+          OPEN(8,FILE='scratem',FORM='FORMATTED')
+          READ(8,'(12E9.2)')EMT2
+      CLOSE(8)
+          DO I=1,IX
+          DO J=1,JX
+          EMT(I,J)=EMT(I,J)+EMT2(I,J)
+          ENDDO
+          ENDDO
+      RETURN
+      END  SUBROUTINE ADDAREA
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+      SUBROUTINE ADDPOIN(ISP,IHR,SPC2DO)
+! 3/22/15 Read in Additional Area Emission Set, same format as original
+! 10/5/12 Read in Jerome Brioude inversion based inventory data for LA region from CalNex-2010 WP-3D data
+! based on input latitude and longitude dot-point information
+!     PARAMETER(JBMAX=3200)  ! Maximum number of records in Jerome Brioude Input File 10/5/12
+      INTEGER                        :: STATUS,SYSTEM
+      INTEGER             :: IPRNT=1
+      INTEGER             :: N,ICOUNT,NREC,IOGR,JOGR,NGRDS,NI,MI,II,ISP
+      REAL, DIMENSION(24)     :: EMB
+      REAL                ::  UNITCONV = 1017.9  ! EMB units must be in moles/hr
+      REAL                ::  XLATIN,XLONIN
+      REAL                ::  SUMJB,SUMNEI
+      REAL                ::  EMWGHT
+      CHARACTER (len= 10)             ::  SPC2DO  ! Input variable (e.g. 0608) mmdd of emission file to do
+      CHARACTER (len= 2)             ::  CHR
+      CHARACTER (len= 80)            ::  FILNAM
+      WRITE(CHR,'(I2.2)')IHR
+      LCH=LNBLNK(SPC2DO)
+      L1A=LNBLNK(POINDIR2)
+      FILNAM='HR'//CHR//'/'//SPC2DO(1:LCH)
+      L1D=LNBLNK(FILNAM)
+      IF(ISP.EQ.1.OR.ISP.EQ.NAL2DO)THEN
+      WRITE(LDEV,'(A,I2,1X,A)')'ADDPOIN,IHR,FILNAM= ',IHR,FILNAM(1:L1D)
+      WRITE(*,'(A,I2,1X,A)')'ADDPOIN,IHR,FILNAM= ',IHR,FILNAM(1:L1D)
+      CALL FLUSH(LDEV)
+      CALL FLUSH(6)
+      ENDIF
+      OPEN(8,FILE=POINDIR2(1:L1A)//FILNAM) ! Sector specific files made by Stu
+          STATUS=SYSTEM('rm -f scratem*')
+          STATUS=SYSTEM('cp '//POINDIR2(1:L1A)//FILNAM(1:L1D)//'.gz scratem.gz')
+          STATUS=SYSTEM('gunzip scratem')
+          OPEN(8,FILE='scratem',FORM='FORMATTED')
+          READ(8,'(12E9.2)')EMP2
+      CLOSE(8)
+          DO I=1,IRLPUS
+          EMP(I)=EMP(I)+EMP2(I)
+          ENDDO
+      RETURN
+      END  SUBROUTINE ADDPOIN
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     SUBROUTINE REGRID
+! REMSAD 36kmX36km domain for BRAVO must be cut 12 by 12 to ensure 
+! sliced parent domain has delta-x < delta-x of new EPA-4 km domain
+! 2/27/04 Rewritten from old NAPAP85 subroutine to fractionate
+! based on input latitude and longitude dot-point information
+     PARAMETER(ILAI=2,ILOI=2,ILAOI=4*ILAI*ILOI)
+     REAL                ::  XC1,XC2,XC3,XC4,YC1,YC2,YC3,YC4,ARSM
+     INTEGER, DIMENSION(ILAOI)  ::  ISAV,JSAV
+     REAL, DIMENSION(ILAOI)     :: ASAV
+     INTEGER             :: IPRNT=1
+     INTEGER             :: N,ICOUNT,NREC,IOGR,JOGR,NGRDS,NI,MI,II
+     N=0
+     ICOUNT=0
+     NREC=0
+     DO I=1,IX2
+     DO J=1,JX2
+     EM2D(I,J)=0.
+     ENDDO
+     ENDDO
+     DO 10 JOGR=1,JX
+     DO 10 IOGR=1,IX
+     IF(EMT(IOGR,JOGR).LE.0.)GOTO 10
+     N = N+1
+     ILONG=-1
+     CALL LLXY(XLATD(IOGR,JOGR),XLOND(IOGR,JOGR),XC1,YC1)
+     CALL LLXY(XLATD(IOGR+1,JOGR),XLOND(IOGR+1,JOGR),XC2,YC2)
+     CALL LLXY(XLATD(IOGR,JOGR+1),XLOND(IOGR,JOGR+1),XC3,YC3)
+     CALL LLXY(XLATD(IOGR+1,JOGR+1),XLOND(IOGR+1,JOGR+1),XC4,YC4)
+! Ignore original grid value if outside the new domain
+     IF(XC2.LT.1..AND.XC4.LT.1.)GOTO 10                  !West boundary test
+     IF(XC1.GT.FLOAT(IP2).AND.XC3.GT.FLOAT(IP2))GOTO 10  !East boundary test
+     IF(YC3.LT.1..AND.YC4.LT.1.)GOTO 10                  !South boundary test
+     IF(YC1.GT.FLOAT(JP2).AND.YC2.GT.FLOAT(JP2))GOTO 10  !North boundary test
+!     WRITE(LDEV,*)'I,J,EMT= ',IOGR,JOGR,EMT(IOGR,JOGR)
+!     WRITE(LDEV,*)'LT,LN= ',XLATD(IOGR,JOGR),XLOND(IOGR,JOGR)
+!     WRITE(LDEV,*)'X1,Y1,X2,Y2,X3,Y3= ',XC1,YC1,XC2,YC2,XC3,YC3,XC4,YC4
+!     CALL FLUSH(LDEV)
+     ICOUNT=ICOUNT+1
+!  XLONC IS CENTER LONGITUDE OF THE DOMAIN
+!  ILONG IS USED IN SUB FRAC (ORIENTATION OF TRAPEZOID IN LAMBERT CONFORM. PROJECTION)
+     IF(XC1.GE.XC3)ILONG=1
+     ARSM=0.
+     NGRDS=0
+     DO 20 NI=1,ILAI
+     XC13=XC1+(XC3-XC1)*FLOAT(NI-1)/FLOAT(ILAI) !West edge loc
+     XC13P=XC1+(XC3-XC1)*FLOAT(NI)/FLOAT(ILAI) !West edge loc
+     YC13=YC1+(YC3-YC1)*FLOAT(NI-1)/FLOAT(ILAI) !West edge loc
+     YC13P=YC1+(YC3-YC1)*FLOAT(NI)/FLOAT(ILAI) !West edge loc
+     XC24=XC2+(XC4-XC2)*FLOAT(NI-1)/FLOAT(ILAI) !East edge loc
+     XC24P=XC2+(XC4-XC2)*FLOAT(NI)/FLOAT(ILAI) !East edge loc
+     YC24=YC2+(YC4-YC2)*FLOAT(NI-1)/FLOAT(ILAI) !East edge loc
+     YC24P=YC2+(YC4-YC2)*FLOAT(NI)/FLOAT(ILAI) !East edge loc
+     DO 20 MI=1,ILOI
+     X1=XC13+(XC24-XC13)*FLOAT(MI-1)/FLOAT(ILOI)
+     Y1=YC13+(YC24-YC13)*FLOAT(MI-1)/FLOAT(ILOI)
+     X2=XC13+(XC24-XC13)*FLOAT(MI)/FLOAT(ILOI)
+     Y2=YC13+(YC24-YC13)*FLOAT(MI)/FLOAT(ILOI)
+     X3=XC13P+(XC24P-XC13P)*FLOAT(MI-1)/FLOAT(ILOI)
+     Y3=YC13P+(YC24P-YC13P)*FLOAT(MI-1)/FLOAT(ILOI)
+     X4=XC13P+(XC24P-XC13P)*FLOAT(MI)/FLOAT(ILOI)
+     Y4=YC13P+(YC24P-YC13P)*FLOAT(MI)/FLOAT(ILOI)
+! 12/9/12 Smooth grid irregularites for Si-Wan case, low numerical precision in EPA-4k grid lat,lon makes oblique angles
+! 12/9/12 Need to rewrite FRAC for more general conditions that showed up here.
+!     WRITE(7,*)'X1=',X1
+     TAR=FLOAT(INT(X1))
+     IF(ABS(X1-TAR).LT.0.001)X1=TAR
+     TAR=FLOAT(INT(X1+1.))
+     IF(ABS(X1-TAR).LT.0.001)X1=TAR
+!     WRITE(7,*)'X1,TAR=',X1,TAR
+     TAR=FLOAT(INT(X2))
+     IF(ABS(X2-TAR).LT.0.001)X2=TAR
+     TAR=FLOAT(INT(X2+1.))
+     IF(ABS(X2-TAR).LT.0.001)X2=TAR
+     TAR=FLOAT(INT(X3))
+     IF(ABS(X3-TAR).LT.0.001)X3=TAR
+     TAR=FLOAT(INT(X3+1.))
+     IF(ABS(X3-TAR).LT.0.001)X3=TAR
+     TAR=FLOAT(INT(X4))
+     IF(ABS(X4-TAR).LT.0.001)X4=TAR
+     TAR=FLOAT(INT(X4+1.))
+     IF(ABS(X4-TAR).LT.0.001)X4=TAR
+!     WRITE(7,*)'Y1=',Y1
+     TAR=FLOAT(INT(Y1))
+     IF(ABS(Y1-TAR).LT.0.001)Y1=TAR
+     TAR=FLOAT(INT(Y1+1.))
+!     WRITE(7,*)'Y1,TAR=',Y1,TAR
+!     CALL FLUSH(7)
+     IF(ABS(Y1-TAR).LT.0.001)Y1=TAR
+     TAR=FLOAT(INT(Y2))
+     IF(ABS(Y2-TAR).LT.0.001)Y2=TAR
+     TAR=FLOAT(INT(Y2+1.))
+     IF(ABS(Y2-TAR).LT.0.001)Y2=TAR
+     TAR=FLOAT(INT(Y3))
+     IF(ABS(Y3-TAR).LT.0.001)Y3=TAR
+     TAR=FLOAT(INT(Y3+1.))
+     IF(ABS(Y3-TAR).LT.0.001)Y3=TAR
+     TAR=FLOAT(INT(Y4))
+     IF(ABS(Y4-TAR).LT.0.001)Y4=TAR
+     TAR=FLOAT(INT(Y4+1.))
+     IF(ABS(Y4-TAR).LT.0.001)Y4=TAR
+     IF((X1.GE.FLOAT(IP2).AND.X3.GE.FLOAT(IP2)).OR. &
+     (Y1.GE.FLOAT(JP2).AND.Y2.GE.FLOAT(JP2)).OR. &
+     (X2.LE.1.AND.X4.LE.1.).OR. &
+     (Y3.LE.1.AND.Y4.LE.1.))GOTO 20
+!     IF((X1.GT.FLOAT(IP2).AND.X3.GT.FLOAT(IP2)).OR. &
+!     (Y1.GT.FLOAT(JP2).AND.Y2.GT.FLOAT(JP2)).OR. &
+!     (X2.LT.1.AND.X4.LT.1.).OR. &
+!     (Y3.LT.1.AND.Y4.LT.1.))GOTO 20
+!SAM WRITE OUT X,Y COORDINATES FOR GRID READ IN
+!     WRITE(7,11)X3,Y3,X4,Y4
+!     WRITE(7,11)X1,Y1,X2,Y2
+!11   FORMAT(2(1X,'(',F11.6,',',F11.6,')'))
+!12   FORMAT(14X,2(1X,'(',F9.5,',',F9.5,')'))
+!     CALL FRAC(X1,X2,X3,X4,Y1,Y2,Y3,Y4)
+     CALL FRAC
+     ARSM=ARSM+TAR*DX*DX
+!     WRITE(LDEV,*)'Out of FRAC'
+!     WRITE(LDEV,*)'I1,J1,FR1= ',I1,J1,FR1
+!     WRITE(LDEV,*)'I2,J2,FR2= ',I2,J2,FR2
+!     WRITE(LDEV,*)'I3,J3,FR3= ',I3,J3,FR3
+!     WRITE(LDEV,*)'I4,J4,FR4= ',I4,J4,FR4
+!     CALL FLUSH(LDEV)
+     IF(FR1.GT.0.)THEN
+     IF(I1.GT.0.AND.I1.LT.IP2.AND.J1.GT.0.AND.J1.LT.JP2)THEN
+     NGRDS=NGRDS+1
+     ISAV(NGRDS)=I1
+     JSAV(NGRDS)=J1
+     ASAV(NGRDS)=FR1/FLOAT(ILAI*ILOI)
+     ENDIF
+     ENDIF
+     IF(FR2.GT.0.)THEN
+     IF(I2.GT.0.AND.I2.LT.IP2.AND.J2.GT.0.AND.J2.LT.JP2)THEN
+     NGRDS=NGRDS+1
+     ISAV(NGRDS)=I2
+     JSAV(NGRDS)=J2
+     ASAV(NGRDS)=FR2/FLOAT(ILAI*ILOI)
+     ENDIF
+     ENDIF
+     IF(FR3.GT.0.)THEN
+     IF(I3.GT.0.AND.I3.LT.IP2.AND.J3.GT.0.AND.J3.LT.JP2)THEN
+     NGRDS=NGRDS+1
+     ISAV(NGRDS)=I3
+     JSAV(NGRDS)=J3
+     ASAV(NGRDS)=FR3/FLOAT(ILAI*ILOI)
+     ENDIF
+     ENDIF
+     IF(FR4.GT.0.)THEN
+     IF(I4.GT.0.AND.I4.LT.IP2.AND.J4.GT.0.AND.J4.LT.JP2)THEN
+     NGRDS=NGRDS+1
+     ISAV(NGRDS)=I4
+     JSAV(NGRDS)=J4
+     ASAV(NGRDS)=FR4/FLOAT(ILAI*ILOI)
+     ENDIF
+     ENDIF
+ 20   CONTINUE
+     NREC=NREC+1
+!23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+     IF(IPRNT.EQ.1)THEN
+     IF(NREC.EQ.1)WRITE(7,'(A,I8,A,2I4,2F11.5)')'FIRST REC=',N  &
+     ,' I,J,LAT,LON=',IOGR,JOGR,XLATD(IOGR,JOGR),XLOND(IOGR,JOGR)
+     ENDIF
+     IF(NGRDS.GT.0)THEN
+!     WRITE(7,*)'NGRDS= ',NGRDS
+     DO 399 NN=1,NGRDS
+     I=ISAV(NN)
+     J=JSAV(NN)
+!     WRITE(7,*)'NN,I,J= ',NN,I,J
+!     EM2D(I,J)=EM2D(I,J)+ARSM*ASAV(NN)
+     EM2D(I,J)=EM2D(I,J)+EMT(IOGR,JOGR)*ASAV(NN)
+ 399  CONTINUE
+     DO II=1,ILAOI
+     ISAV(II)=0
+     JSAV(II)=0
+     ASAV(II)=0.
+     ENDDO
+     ELSE
+     WRITE(7,*)'No land fraction but should be in REGRID,stopping'
+     WRITE(*,*)'No land fraction but should be in REGRID,stopping'
+     STOP
+     ENDIF
+  10   CONTINUE
+!  PRINT OUT
+     EMAX=-999.
+     EMIN=1.E28
+     ETOT=0.
+     NREC=0
+     DO J=1,JX2
+     DO I=1,IX2
+     IF(EM2D(I,J).GT.0.)NREC=NREC+1
+     ETOT=ETOT+EM2D(I,J)
+     IF(EM2D(I,J).GT.EMAX)THEN
+      EMAX=EM2D(I,J)
+      IMAX=I
+      JMAX=J
+     ENDIF
+     IF(EM2D(I,J).LT.EMIN.AND.EM2D(I,J).GT.0.) EMIN=EM2D(I,J)
+     ENDDO
+     ENDDO
+     IF(IPRNT.EQ.1)THEN
+     WRITE(7,*)'SPLIT OK,Org_Em,Org_Ingrid,New_Wrtn=  ',N,ICOUNT,NREC
+     WRITE(*,*)'SPLIT OK,Org_Em,Org_Ingrid,New_Wrtn=  ',N,ICOUNT,NREC
+     WRITE(*,*)'Min nonzero Ton/dy em= ',EMIN,' Max emission= ',EMAX
+     WRITE(7,*)'Min nonzero Ton/dy em= ',EMIN,' Max emission= ',EMAX
+     WRITE(*,*)' Imx,Jmx= ',IMAX,JMAX,',Tot Mtrx Ems,ton/dy= ',ETOT
+     WRITE(7,*)' Imx,Jmx= ',IMAX,JMAX,',Tot Mtrx Ems,ton/dy= ',ETOT
+     ENDIF
+     ETOT=0.
+     IPRNT=0
+     RETURN
+     END  SUBROUTINE REGRID
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+     SUBROUTINE FRAC
+!     SUBROUTINE FRAC(X1,X2,X3,X4,Y1,Y2,Y3,Y4)
+     IMPLICIT DOUBLE PRECISION(A-H,O-Z)
+!     IMPLICIT REAL*16(A-H,O-Z)
+!     REAL*4 A1,A2,A3,A4,B1,B2,B3,B4
+!     REAL*4 XX1,XX2,X,YY1,YY2,Y
+!     REAL*4 XX1,XX2,YY1,YY2
+!     REAL*4 X1,X2,X3,X4,Y1,Y2,Y3,Y4
+     EX(XX1,XX2,YY1,YY2,Y)=(XX2-XX1)*(Y-YY1)/(YY2-YY1)+XX1 
+     EY(XX1,XX2,YY1,YY2,X)=(YY2-YY1)*(X-XX1)/(XX2-XX1)+YY1 
+     TRI(I,A1,B1,A2,B2,A3,B3)=.5*ABS(A1*B2+A2*B3+A3*B1-B1*A2-B2*A3-B3*A1)*I
+     QUAD(A1,A2,A3,A4,B1,B2,B3,B4)=.5*ABS(A1*B2+A2*B3+A3*B4+A4*B1-B1*A2-B2*A3-B3*A4-B4*A1)
+     XCN=0.
+     YCN=0.
+     XLF=0.
+     XRT=0.
+     YBT=0.
+     YTP=0.
+     I1=X1
+     II2=X2
+     II3=X3
+     II4=X4
+     J1=Y1
+     JJ2=Y2
+     JJ3=Y3
+     JJ4=Y4
+     ICN=1
+     I2=I1+1
+     I3=I1
+     I4=I2
+     J2=J1
+     J3=J1+1
+     J4=J3
+     FR1=0.
+     FR2=0.
+     FR3=0.
+     FR4=0.
+     TAR=QUAD(X1,X3,X4,X2,Y1,Y3,Y4,Y2) 
+     NV=JJ2+JJ3+JJ4-3*J1
+     NH=II2+II3+II4-3*I1
+     NV5=1+NV
+     V1=0.
+     V2=0.
+     GOTO(10,20,30,40)NV5
+!  NV=-1
+     YCN=FLOAT(J1) 
+     XLF=EX(X1,X2,Y1,Y2,YCN) 
+     XRT=EX(X2,X4,Y2,Y4,YCN) 
+     V2=TRI(ICN,X2,Y2,XLF,YCN,XRT,YCN) 
+     V1=TAR-V2
+     J3=J1-1
+     J4=J1-1
+     GOTO 50
+ 10   CONTINUE
+!  NV=0
+     V1=TAR
+     GOTO 50
+ 20   CONTINUE
+!  NV=1
+     YCN=FLOAT(J1+1)
+     IF(ILONG.EQ.-1)THEN
+     XLF=EX(X1,X3,Y1,Y3,YCN) 
+     XRT=EX(X3,X4,Y3,Y4,YCN) 
+     V2=TRI(ICN,X3,Y3,XLF,YCN,XRT,YCN) 
+     ELSE
+     XLF=EX(X3,X4,Y3,Y4,YCN) 
+     XRT=EX(X2,X4,Y2,Y4,YCN) 
+     V2=TRI(ICN,X4,Y4,XLF,YCN,XRT,YCN) 
+     ENDIF
+     V1=TAR-V2
+     GOTO 50
+ 30   CONTINUE
+!  NV=2
+     YCN=FLOAT(J1+1)
+     XLF=EX(X1,X3,Y1,Y3,YCN) 
+     XRT=EX(X2,X4,Y2,Y4,YCN) 
+!     WRITE(7,4)XLF,XRT,YCN
+!4    FORMAT(1X,'XLF,XRT,YCN',3F10.6)
+     V1=QUAD(X1,XLF,XRT,X2,Y1,YCN,YCN,Y2)
+     V2=TAR-V1
+     GOTO 50
+ 40   CONTINUE
+!  NV=3
+     YCN=FLOAT(J1+1)
+     XLF=EX(X1,X3,Y1,Y3,YCN) 
+     XRT=EX(X1,X2,Y1,Y2,YCN) 
+     V1=TRI(ICN,X1,Y1,XLF,YCN,XRT,YCN) 
+     V2=TAR-V1
+ 50   CONTINUE
+     NH5=NH+1
+     H1=0
+     H2=0
+     GOTO(11,21,31,41)NH5
+!  NH=-1
+     I2=I1-1
+     I3=I1-1
+     I4=I1
+     XCN=FLOAT(I1) 
+     YBT=EY(X1,X3,Y1,Y3,XCN) 
+     YTP=EY(X3,X4,Y3,Y4,XCN) 
+     H2=TRI(ICN,X3,Y3,XCN,YBT,XCN,YTP) 
+     H1=TAR-H2
+     GOTO 51
+ 11   CONTINUE
+!  NH=0
+     H1=TAR
+     GOTO 51
+ 21   CONTINUE
+!  NH=1
+     XCN=FLOAT(I1+1)
+     IF(ILONG.EQ.-1)THEN
+     YBT=EY(X2,X4,Y2,Y4,XCN) 
+     YTP=EY(X3,X4,Y3,Y4,XCN) 
+     H2=TRI(ICN,X4,Y4,XCN,YBT,XCN,YTP) 
+     ELSE
+     YBT=EY(X1,X2,Y1,Y2,XCN) 
+     YTP=EY(X2,X4,Y2,Y4,XCN) 
+     H2=TRI(ICN,X2,Y2,XCN,YBT,XCN,YTP) 
+     ENDIF
+     H1=TAR-H2
+     GOTO 51
+ 31   CONTINUE
+!  NH=2
+     XCN=FLOAT(I1+1)
+     YBT=EY(X1,X2,Y1,Y2,XCN) 
+     YTP=EY(X3,X4,Y3,Y4,XCN) 
+     H1=QUAD(X1,X3,XCN,XCN,Y1,Y3,YTP,YBT)
+     H2=TAR-H1
+     GOTO 51
+ 41   CONTINUE
+!  NH=3
+     XCN=FLOAT(I1+1)
+     YBT=EY(X1,X2,Y1,Y2,XCN) 
+     YTP=EY(X1,X3,Y1,Y3,XCN) 
+     H1=TRI(ICN,X1,Y1,XCN,YTP,XCN,YBT) 
+     H2=TAR-H1
+ 51   CONTINUE
+     NVNH=NV*NH
+     IF(NVNH.EQ.0)THEN
+!     WRITE(7,3)TAR,V1,V2,H1,H2
+!3    FORMAT(1X,'TAR,V1,V2,H1,H2',1P5E9.2)
+     ONTAR=1./TAR**2
+     FR1=V1*H1*ONTAR
+     FR2=V1*H2*ONTAR
+     FR3=V2*H1*ONTAR
+     GOTO 100
+     ELSEIF(NVNH.EQ.4)THEN
+     TAR1=QUAD(X1,XLF,XCN,XCN,Y1,YCN,YCN,YBT)
+     FR1=TAR1/TAR
+     FR2=(V1-TAR1)/TAR
+     FR3=(H1-TAR1)/TAR
+     FR4=1.-FR1-FR2-FR3
+     GOTO 100
+     ELSE
+!  CORNER POINT NOT 4 QUADRANGLES
+     IF(XLF.GE.XCN.OR.XRT.LE.XCN)ICN=0 
+     IF(ILONG.EQ.1)THEN
+     IF(NH.EQ.-1.AND.NV.NE.1)THEN
+     TAX=TRI(ICN,XCN,YCN,XLF,YCN,XCN,YBT)
+     FR2=TAX/TAR
+     FR1=(V1-TAX)/TAR
+     FR3=(H2-TAX)/TAR
+     FR4=1.-FR1-FR2-FR3
+     GOTO 100
+     ELSEIF(NV.EQ.1.AND.NH.EQ.-1)THEN
+     TAX=TRI(ICN,XCN,YCN,XLF,YCN,XCN,YTP)
+     FR3=TAX/TAR
+     FR2=(H2-TAX)/TAR
+     FR4=(V2-TAX)/TAR
+     FR1=1.-FR2-FR3-FR4
+     GOTO 100
+     ELSEIF(NV.EQ.1.AND.NH.NE.1)THEN
+     TAX=TRI(ICN,XCN,YCN,XLF,YCN,XCN,YTP)
+     FR3=TAX/TAR
+     FR4=(V2-TAX)/TAR
+     FR1=(H1-TAX)/TAR
+     FR2=1.-FR1-FR3-FR4
+     GOTO 100
+     ELSEIF(NH.EQ.1.AND.NV.NE.3)THEN
+     TAX=TRI(ICN,XCN,YCN,XRT,YCN,XCN,YTP)
+     FR4=TAX/TAR
+     FR3=(V2-TAX)/TAR
+     FR2=(H2-TAX)/TAR
+     FR1=1.-FR4-FR3-FR2
+     GOTO 100
+     ELSE
+     TAX=TRI(ICN,XCN,YCN,XRT,YCN,XCN,YBT)
+     FR2=TAX/TAR
+     FR1=(V1-TAX)/TAR
+     FR4=(H2-TAX)/TAR
+     FR3=1.-FR1-FR2-FR4
+     GOTO 100
+     ENDIF
+     ELSE
+!  LONGITUDE LESS THAN -109.
+     IF(NV.EQ.-1.AND.NH.NE.1)THEN
+     TAX=TRI(ICN,XCN,YCN,XLF,YCN,XCN,YBT)
+     FR3=TAX/TAR
+     FR4=(V2-TAX)/TAR
+     FR1=(H1-TAX)/TAR
+     FR2=1.-FR1-FR3-FR4
+     GOTO 100
+     ELSEIF(NV.EQ.-1.AND.NH.EQ.1)THEN
+     TAX=TRI(ICN,XCN,YCN,XRT,YCN,XCN,YBT)
+     FR4=TAX/TAR
+     FR3=(V2-TAX)/TAR
+     FR2=(H2-TAX)/TAR
+     FR1=1.-FR2-FR3-FR4
+     GOTO 100
+     ELSEIF(NH.EQ.1.AND.NV.NE.1)THEN
+     TAX=TRI(ICN,XCN,YCN,XRT,YCN,XCN,YBT)
+     FR2=TAX/TAR
+     FR1=(V1-TAX)/TAR
+     FR4=(H2-TAX)/TAR
+     FR3=1.-FR1-FR2-FR4
+     GOTO 100
+     ELSEIF(NV.EQ.1.AND.NH.NE.3)THEN
+     TAX=TRI(ICN,XCN,YCN,XRT,YCN,XCN,YTP)
+     FR4=TAX/TAR
+     FR3=(V2-TAX)/TAR
+     FR2=(H2-TAX)/TAR
+     FR1=1.-FR2-FR3-FR4
+     GOTO 100
+     ELSE
+     TAX=TRI(ICN,XCN,YCN,XLF,YCN,XCN,YTP)
+     FR3=TAX/TAR
+     FR1=(H1-TAX)/TAR
+     FR4=(V2-TAX)/TAR
+     FR2=1.-FR1-FR3-FR4
+     GOTO 100
+     ENDIF
+     ENDIF
+     ENDIF
+ 100  CONTINUE
+     FRT=FR1+FR2+FR3+FR4
+!     FRM=QMIN1(FR1,FR2,FR3,FR4)
+!     FRX=QMAX1(FR1,FR2,FR3,FR4)
+     FRM=DMIN1(FR1,FR2,FR3,FR4)
+     FRX=DMAX1(FR1,FR2,FR3,FR4)
+!SAM WRITE OUT ALL FRAC VARIABLES HERE BY ELIMINATING IF-THEN-STOP-ENDIF
+!     IF(FRT.LT..999999.OR.FRT.GT.1.000001.OR.FRM.LT.0..OR.FRX.GT.1.)THEN
+ 114  FORMAT(1X,'XCN,YCN,XLF,XRT,YBT,YTP',/,1X,1P6D13.6)
+ 113  FORMAT(1X,'TAR,V1,V2,H1,H2,FR1,FR2,FR3,FR4',/,1X,1P5D12.5,/,1X,4D14.7)
+ 112  FORMAT(1X,'X1,Y1,X2,Y2,X3,Y3,X4,Y4,NV,NH',/,1X,1P8D13.6,1X,2I3)
+!     WRITE(7,105)ILONG,I1,J1,FR1,I2,J2,FR2,I3,J3,FR3,I4,J4,FR4
+     IF(FRT.LT..999999.OR.FRT.GT.1.000001.OR.FRM.LT.0..OR.FRX.GT.1.)THEN
+     WRITE(7,112)X1,Y1,X2,Y2,X3,Y3,X4,Y4,NV,NH
+     WRITE(7,113)TAR,V1,V2,H1,H2,FR1,FR2,FR3,FR4 
+     WRITE(7,114)XCN,YCN,XLF,XRT,YBT,YTP
+     CALL FLUSH(7)
+     CALL FLUSH(LDEV)
+     STOP'FRAC bad grid overlay'
+     ENDIF
+     IF(I1.LT.1.OR.J1.LT.1.OR.I1.GT.IP2.OR.J1.GT.JP2)FR1=0.
+     IF(I2.LT.1.OR.J2.LT.1.OR.I2.GT.IP2.OR.J2.GT.JP2)FR2=0.
+     IF(I3.LT.1.OR.J3.LT.1.OR.I3.GT.IP2.OR.J3.GT.JP2)FR3=0.
+     IF(I4.LT.1.OR.J4.LT.1.OR.I4.GT.IP2.OR.J4.GT.JP2)FR4=0.
+!     WRITE(7,105)ILONG,I1,J1,FR1,I2,J2,FR2,I3,J3,FR3,I4,J4,FR4
+ 105  FORMAT(1X,I5,4(1X,I3,1X,I3,1X,F9.6))
+     RETURN
+     END SUBROUTINE FRAC
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!------------------------------------------------------------------------------
+  subroutine wrf_xtrct (cdfid,ncod)
+
+! SAM 10/27/11, taken from NCAR netcdf utilites - reads WRF/Chem netcdf files,
+! and generates a netcdf file for output variables defined in module/species.f
+        
+  implicit none
+
+  include 'netcdf.inc'
+
+  character (len=80)                               :: file_out
+  character (len=10)                               :: option
+  character (len=3)                                :: go_change
+  !character (len=10), intent(in)                   :: plot_var
+  integer , intent(in)                             :: cdfid,ncod
+  integer                                          :: i,j,k, ivtype, length, length_input
+  integer                                          :: time1, time2
+  logical                                          :: op_diag = .TRUE.
+  logical                                          :: op_att = .TRUE.
+  logical                                          :: op_rot = .false.
+  logical                                          :: FirstTime = .TRUE.
+  logical                                          :: static = .FALSE.
+  
+  character (len=120)                               :: varnam, att_name, value_chr, print_time
+  character (len=80)                               :: att_sav(10)
+  integer                                          :: dimids(10), FieldType
+  character (len=80)                               ::  units, MemoryOrder, description, stagger
+
+  integer                                          :: rcode, id_var, id_varo
+  integer                                          :: id_att, attlen, ios
+  integer                                          :: nDims, nVars, nAtts, unlimDimID, dims(4)
+  integer                                          :: unit_place, order_place, nVars_sav
+  integer                                          :: type_to_get, dims3, iatt
+  integer                                          :: id_time, n_times, itimes
+
+  double precision,  allocatable, dimension(:,:,:) :: data_dp_r
+  real,    allocatable, dimension(:,:,:)           :: data_r
+  integer, allocatable, dimension(:,:,:)           :: data_i
+  real,    allocatable, dimension(:,:)             :: data_ts
+  real,    allocatable, dimension(:)               :: value_real
+  real*8,  allocatable, dimension(:)               :: value_dble
+  real,    allocatable, dimension(:,:,:)           :: pressure, height, tk, tmp
+  real,    allocatable, dimension(:,:,:)           :: rh,moist,dum3dp
+  real,    allocatable, dimension(:,:,:,:)         :: data1d
+  integer                                          :: istarto(4), iendo(4)
+
+  character (len=80)                               :: times(999)
+  character (len=120)                              :: dname
+  integer                                          :: istart(4), iend(4), isample(4)
+  integer                                          :: istart_t(2), iend_t(2)
+  real                                             :: sample_value_r, minvalue_r, maxvalue_r
+  integer                                          :: sample_value_i, minvalue_i, maxvalue_i
+  integer                                          :: value_int
+  integer                                          :: wedim, sndim, btdim, kk, ii, jj, iii, dval
+
+  real                                             :: dy, dummy_stdlon, dummy_lon1
+  real, parameter                                  :: PI = 3.141592653589793
+  real, parameter                                  :: RAD_PER_DEG = PI/180.
+  character (len=9)  :: c9
+  integer            :: digit_1, digit_0
+  character,    allocatable, dimension(:,:)        :: time_out
+  integer                                          :: rcodeo,L1C,L2C
+  real                                             :: fac,facint
+  integer, parameter                               :: nbin_o=8
+      REAL , allocatable :: chem(:,:,:,:),dz8w(:,:,:),alt(:,:,:),relhum(:,:,:)
+      REAL , allocatable :: chm(:,:,:,:)
+!
+  integer                      ::    hrout_offset
+
+  integer, parameter                :: cache_size = 32, &
+                                       cache_nelem = 37, &
+                                       cache_preemption = 100
+  type_to_get = 5
+  time1 = 0
+  time2 = 0
+
+! Get the times first:
+  rcode = nf_inq_varid ( cdfid, 'Times', id_var )
+    if (rcode .ne. 0) then
+  write(*,'(A)')' Expected time variable not found - stopping'
+  stop'777'
+    else
+      id_time = ncvid( cdfid, 'Times', rcode )
+    endif
+  rcode = nf_inq_var( cdfid, id_time, varnam, ivtype, ndims, dimids, natts )
+  do i=1,ndims
+    rcode = nf_inq_dimlen( cdfid, dimids(i), dims(i) )
+    write(*,'(A,3(I,1X))')'Time variable ndims,i,dimids(i),dims(i)=',i,dimids(i),dims(i)
+    call flush(6)
+  enddo
+
+  n_times = dims(2)
+  do i=1,dims(2)
+    istart_t(1) = 1
+    iend_t(1) = dims(1)
+    istart_t(2) = i
+    iend_t(2) = 1
+    rcode = NF_GET_VARA_TEXT  ( cdfid, id_time,      &
+                     istart_t, iend_t, times(i))
+  enddo
+! n_times = dims(1)
+! Pull of time from 'reference_date' attribute of variable=time
+!         do iatt = 1,natts
+!         rcode = nf_inq_attname(cdfid,id_time,iatt,att_name)
+!        L2C = max(1,index(att_name,' ')-1)
+!        if(att_name(1:L2C).eq.'reference_date')then
+!     rcode = NF_GET_ATT_TEXT(cdfid, id_time, att_name, value_chr )
+!        write(Times(n_times),'(A19)')value_chr(1:19)
+!        endif
+!         enddo
+
+
+    print*,"TIMES in file"
+    do itimes = 1,n_times
+      print_time = times(itimes)
+      print*,trim(print_time)
+    enddo
+
+!  rcodeo = NF_SET_CHUNK_CACHE(cache_size, cache_nelem, cache_preemption)
+! length = max(1,index(file,' ')-1)
+!  if( rcodeo == 0) then
+!    write(6,*) ' Output file opened, writing constant latitude_longitude'
+!     rcodeo = nf_def_var(ncod,'latitude_longitude',NF_INT,0,dimids,id_var)
+!     write(*,*)'LtLn const,id_var,rcodeos=',id_var,rcodeo
+!     call flush(6)
+!      att_name='grid_mapping_name'
+!      value_chr='latitude_longitude'
+!      attlen=index(value_chr,'  ')-1
+!      rcodeo = NF_PUT_ATT_TEXT(ncod, id_var,att_name,attlen, value_chr )
+!      att_name='longitude_of_prime_meridian';attlen=1
+!      rcodeo = NF_PUT_ATT_REAL(ncod,id_var,att_name,NF_REAL,attlen, 0. )
+!      att_name='earth_radius';attlen=1
+!      rcodeo = NF_PUT_ATT_REAL(ncod, id_var,att_name,NF_REAL,attlen, 6371229. )
+!  else
+!    write(6,*) ' error opening output netcdf file scratch.ncf'
+!    stop
+!  end if
+! do i=1,dims(2)
+    istart_t(1) = 1
+    iend_t(1) = dims(1)
+    istart_t(2) = i
+    iend_t(2) = 1
+    rcode = NF_GET_VARA_TEXT  ( cdfid, id_time,      &
+                     istart_t, iend_t, times(i))
+! enddo
+
+  rcode = nf_inq(cdfid, nDims, nVars, nAtts, unlimDimID)
+  write(*,*)'nAtts,nDims= ',nAtts,nDims
+  call flush(6)
+  nVars_sav = nVars
+
+! Get some header information
+  do ii = 1, nDims
+    rcode = nf_inq_dim(cdfid, ii, dname, dval)
+    if     (dname .eq. 'west_east') then
+      wedim = dval
+      IX2=dval
+    elseif (dname .eq. 'south_north') then
+      sndim = dval
+      JX2=dval
+    elseif (dname .eq. 'bottom_top') then
+    KXwrf=dval
+!     btdim = dval
+  btdim = kemit   ! vertical dimension of input-binary/output-netcdf
+!   elseif (dname .eq. 'num_metgrid_levels') then
+!     btdim = dval
+    endif
+  enddo
+
+    if(nAtts.gt.0)then ! 10/27/11, AFWA files have no attributes
+    print*,"GLOBAL ATTRIBUTES:"
+    print*," "
+    do iatt = 1,nAtts
+      rcode = nf_inq_attname(cdfid,nf_global,iatt,att_name)
+      rcode = nf_inq_att( cdfid,nf_global,att_name,ivtype,attlen )
+!     write(*,*)trim(att_name),' ivtype= ',ivtype,' attlen=',attlen
+      if (ivtype == 2) then
+!     L1C=index(att_name,' ')-1
+      L1C=len_trim(att_name)
+        rcode = NF_GET_ATT_TEXT(cdfid, nf_global, att_name, value_chr )
+! Modify character attributes for Optical output netcdf file creates, specific to CLASSIC netcdf output
+        L2C = max(1,index(value_chr,'Model')+4)
+          IF(att_name(1:L1C).EQ.'source')THEN
+          value_chr=value_chr(1:L2C)//', Optical Output'
+!         attlen = max(1,index(value_chr,' ')-1)
+          attlen = len_trim(value_chr)
+          rcodeo = NF_PUT_ATT_TEXT(ncod, nf_global, att_name,attlen, value_chr )
+! End of character modifies
+              else
+        rcodeo = NF_PUT_ATT_TEXT(ncod, nf_global, att_name,attlen, value_chr )
+              endif
+
+        write(*,'(A," : ",A)') att_name(1:40),value_chr(1:attlen)
+      elseif (ivtype == 4) then
+        rcode = NF_GET_ATT_INT(cdfid, nf_global, att_name, value_int )
+        rcodeo = NF_PUT_ATT_INT(ncod, nf_global, att_name,NF_INT,attlen, value_int )
+        write(6,'(A," : ",i5)') att_name(1:40),value_int
+! Following  pulls off projection parameters from WRF input file
+        if(trim(att_name).EQ.'MAP_PROJ')proj_num = value_int
+      elseif (ivtype == 5) then
+        allocate (value_real(attlen))
+        rcode = NF_GET_ATT_REAL(cdfid, nf_global, att_name, value_real )
+        rcodeo = NF_PUT_ATT_REAL(ncod, nf_global, att_name,NF_FLOAT,attlen, value_real )
+        if (attlen .gt. 1) then
+          print*,att_name(1:40),": ",value_real
+        else
+          write(6,'(A," : ",f12.4)') att_name(1:40),value_real(1)
+! Following  pulls off projection parameters from WRF input file
+        if(trim(att_name).EQ.'TRUELAT1')truelat1 = value_real(1)
+        if(trim(att_name).EQ.'TRUELAT2')truelat2 = value_real(1)
+        if(trim(att_name).EQ.'STAND_LON')stdlon = value_real(1)
+        if(trim(att_name).EQ.'CEN_LAT')lat1 = value_real(1)
+        if(trim(att_name).EQ.'CEN_LON')lon1 = value_real(1)
+        if(trim(att_name).EQ.'DX')dx = value_real(1)
+        if(trim(att_name).EQ.'POLE_LAT')user_pole_lat = value_real(1)
+        if(trim(att_name).EQ.'POLE_LON')user_pole_lon = value_real(1)
+         knowni = .5*(IX2+2) ! center lat-lon
+         knownj = .5*(JX2+2) ! center lat-lon
+        endif
+        deallocate (value_real)
+      endif
+    enddo
+! Add attribute title to netcdf file
+          att_name(1:5)='TITLE'
+          value_chr='Custom netcdf emission files from binary emiss_v05 (Stu McKeen,9-19)'
+          attlen = len_trim(value_chr)
+          rcodeo = NF_PUT_ATT_TEXT(ncod, nf_global, att_name,attlen, value_chr )
+    print*," "
+    print*,"--------------------------------------------------------------------- "
+    print*," "
+
+      rcode = NF_GET_ATT_TEXT(cdfid, nf_global, "TITLE", value_chr )
+      if ( INDEX(value_chr,'OUTPUT FROM ') == 0 ) then
+         !! diagnostics only available for wrfout data
+         print*,"This is not a wrfout file - no diagnostics will be done"
+         stop
+      endif
+
+      else ! Part of if(nAtts>0) test - if you made it here, there are no attributes in input netcdf file
+          att_name(1:5)='TITLE'
+          value_chr='Custom netcdf emission files from binary emiss_v05 (Stu McKeen,9-19)'
+!         attlen = max(1,index(value_chr,' ')-1)
+          attlen = len_trim(value_chr)
+          rcodeo = NF_PUT_ATT_TEXT(ncod, nf_global, att_name,attlen, value_chr )
+!         write(*,*)'Attribute write to output, rcodeo= ',rcodeo
+!         call flush(6)
+!         stop888
+      endif  ! End of if(nAtts>0) test
+! 2/10/21 Pull of interval heights, ZFA (meters), for plume-rise calculation
+    allocate ( dum3dp(IX2,JX2,KXwrf+1))
+    allocate ( zfa(IX2,JX2,KXwrf+1))
+         istart=1
+         iend(1)=IX2
+         iend(2)=JX2
+         iend(3)=KXwrf+1
+         iend(4)=1
+         istart(4)=1
+      II = ncvid(cdfid,'PH',rcode) ! perturbation geopotential height
+      CALL NCVGT(cdfid,II,istart,iend,dum3dp,RCODE)  ! perturbation geopotential height
+      II = ncvid(cdfid,'PHB',rcode) ! base geopotential height
+      CALL NCVGT(cdfid,II,istart,iend,zfa,RCODE)  ! perturbation geopotential height
+      zfa(:,:,:)=(zfa(:,:,:)+dum3dp(:,:,:))/9.8 ! Height ASL (m)
+      deallocate (dum3dp)
+      do k=KXwrf+1,1,-1
+      zfa(:,:,k)=zfa(:,:,k)-zfa(:,:,1) ! Height AGL (m)
+      write(6,*)'ZFA(mid-domain,',k,')= ',ZFA(INT(IX2/2),INT(JX2/2),K),'meter'
+      enddo
+!     STOP'888'
+
+! OPTIONS
+!===========================================================================================
+
+
+! Write dimension information to output netcdf
+      n_times=NTime_outf  ! 9/3/19 fix output time dimension to 12 (hrs)
+      rcodeo = nf_def_dim(ncod, 'Time', n_times,L1C) ! Only one time slice in file
+      rcodeo = nf_def_dim(ncod, 'DateStrLen', 19,L1C) ! consistency with 2014 output
+      rcodeo = nf_def_dim(ncod, 'west_east', wedim,L1C) ! consistency with 2014 output
+      rcodeo = nf_def_dim(ncod, 'south_north', sndim,L1C) ! consistency with 2014 output
+!     rcodeo = nf_def_dim(ncod, 'longitude', wedim,L1C) ! consistency with 2014 output
+!     rcodeo = nf_def_dim(ncod, 'latitude', sndim,L1C) ! consistency with 2014 output
+!     rcodeo = nf_def_dim(ncod, 'bottom_top', btdim,L1C) ! consistency with 2014 output
+      rcodeo = nf_def_dim(ncod, 'emissions_zdim', btdim,L1C) ! 10/21/19 - fix dimension name
+!     rcodeo = nf_def_dim(ncod, 'bottom_top', 1,L1C) ! consistency with 2014 output
+!     nDimso=5
+! Write Time information to output netcdf
+  rcode = nf_inq_var( cdfid, id_time, varnam, ivtype, ndims, dimids, natts )
+! rcodeo = nf_def_var(ncod,'Times',NF_CHAR,ndims,dimids,L1C)
+      dimids(1)=2
+      dimids(2)=1
+  rcodeo = nf_def_var(ncod,'Times',NF_CHAR,2,dimids,L1C)
+!     write(*,*)'NF_NOERR,rcodeo= ',NF_NOERR,rcodeo
+! Time has no attributes
+      call initializ_3d(cdfid,ncod)
+      if(num2dnew.GT.0)call initializ_2d(cdfid,ncod)
+      if(num_rw.gt.0)call ncf_readwrite( cdfid,ncod,0,0)
+      rcodeo=nf_enddef(ncod)
+      write(*,*)'nf_enddef, NF_NOERR,rcodeo= ',NF_NOERR,rcodeo
+!     rcodeo = nf_close(ncod)
+!   rcodeo = nf_open('op'//file(1:length), NF_WRITE, ncod )
+! 7/20/17 after define mode turned off, now in data mode - transfer time indepen. data to new file
+! intime=0,iflag=1 means write out time independent file from orig to new
+      if(num_rw.gt.0)call ncf_readwrite( cdfid,ncod,0,1)
+!     times(1)='2005-06-15_12:00:00'
+      do i=1,2
+      rcodeo = nf_inq_dimlen( ncod, dimids(i), dims(i) )
+      write(*,*)'i,dimids(i),dims(i)=',i,dimids(i),dims(i)
+      enddo
+         if (allocated(time_out)) deallocate(time_out)
+         allocate ( time_out(dims(1),dims(2)))
+      do j=1,dims(2)
+!     write(*,*)'-------------- j= ',j,'------------'
+      do i=1,dims(1)
+      time_out(i,j) = times(1)(i:i)
+!     write(*,*)'times def,i,time_out(i,j)=',i,time_out(i,j)
+      enddo
+      enddo
+! do i=1,dims(2)
+!   istart_t(1) = 1
+!   iend_t(1) = dims(1)
+!   istart_t(2) = i
+!   iend_t(2) = 1
+!   rcodeo = NF_PUT_VARA_TEXT  ( ncod, id_time,      &
+!                    istart_t, iend_t, times(i))
+! enddo
+
+! Now we are ready to start with the time loop
+    if ( time1 == 0 ) time1 = 1
+    if ( time2 == 0 ) time2 = n_times
+    write(*,*)'time1,time2=',time1,time2
+
+!   do itimes = time1,time2
+!   do itimes = time1,time1
+    READ(HR_range(1:2),'(I2.2)')i
+    write(6,*)i,'=start TIME in output emission file'
+    hrout_offset=i
+      do i=1,Ntime_outf
+      digit_1=int((hrout_offset+i-1)/10)
+      digit_0=(hrout_offset+i-1)-digit_1*10
+      write(time_out(12,i),'(I1)')digit_1
+      write(time_out(13,i),'(I1)')digit_0
+      enddo
+      do j=1,Ntime_outf
+      write(*,*)'-------------- j= ',j,'------------'
+!     write(*,*)'times def,i,time_out(i,1)=',i,time_out(i,1)
+      write(*,*)(time_out(i,j),i=1,dims(1))
+      call flush(6)
+      enddo
+         rcodeo = nf_inq_varid ( ncod, "Times", id_var )
+         rcodeo = NF_PUT_VAR_TEXT( ncod,id_var,time_out)
+
+! END OF OPTIONS
+!     rcodeo = nf_close(ncod)
+      rcode = nf_close(cdfid)
+! call ncclos(cdfid,rcode)
+  print*,"rcode,rcodeo=  ",rcode,rcodeo
+  print*,"   --- End of input file ---   "
+
+  end subroutine wrf_xtrct
+!-------------------------------------------------------------------------------------------
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!------------------------------------------------------------------------------
+  subroutine initializ_3d( cdfid,ncod)
+        
+  implicit none
+
+  include 'netcdf.inc'
+
+  integer , intent(in)                             :: cdfid, ncod         ! Unit numbers of netcdf input and output files
+  integer                                          :: rcode,rcodeo,L1C,L2C,id_var,i,ii,ivtype,ndims,natts,attlen,iatt
+  integer                                          :: dimids(10),dims(4),chunks(4)
+  character (len=80)                               :: varnam, att_name, value_chr
+  character (len=120)                              :: dname
+     CHARACTER (len= 9)     ::  c9
+!
+! Get input pressure as template, save real attributes for files to write out
+      ndims=4
+      dimids(1)=3
+      dimids(2)=4
+      dimids(3)=5
+      dimids(4)=1
+      natts=6
+  chunks=1 ! initialize chunks variable
+  do ii = 1, nDims
+    rcodeo = nf_inq_dim(ncod, ii, dname, i)
+    if     (dname .eq. 'longitude') then
+!    chunks(ii) = i
+     chunks(1) = i
+    elseif (dname .eq. 'latitude') then
+!    chunks(ii) = i
+     chunks(2) = i
+    endif
+  enddo
+
+      do ii=1,num3dnew
+! Define new 3-D matrices, get ready to fill attributes for each matrix 
+!     varnam=var3dnew(ii)
+      varnam=ENAME(ii)
+!     write(*,*)'Before nf_def_var call, varnam,ii= ',varnam,ii
+!     call flush(6)
+      rcodeo = nf_def_var(ncod,varnam,NF_FLOAT,ndims,dimids,idvaro3dn(ii))
+      if ( rcodeo == 0 ) then
+!     write(*,*)'varnam,ii= ',varnam,ii
+!     call flush(6)
+      write(*,*)'New 3-D matrix,i,ncod,id_varo=',trim(varnam),ii,ncod,idvaro3dn(ii)
+      call flush(6)
+!     rcodeo = NF_DEF_VAR_chunking(ncod, idvaro3dn(ii), NF_CHUNKED, chunks)
+!      if(rcodeo .ne. nf_noerr)then
+!      write(*,*)' Error on chunking try, var =',varnam,' ,Stopping'
+!      stop'777'
+!      endif
+      rcodeo = nf_def_var_deflate(ncod,idvaro3dn(ii),1,1,1)
+       if(rcodeo .ne. nf_noerr)then
+       write(*,*)' Error on compression try, var =',varnam,' ,Stopping'
+       stop'777'
+       endif
+! write(*,'(3A,4I6)')'Initlz3d, ',varnam,' chunks = ',(chunks(i),i=1,ndims)
+      else
+      write(*,*)' Cant define new variable =',varnam,' ,Stopping'
+      stop'777'
+      endif
+      att_name='FieldType';attlen=1
+      rcodeo = NF_PUT_ATT_INT(ncod, idvaro3dn(ii),att_name,NF_INT,attlen, 104 )
+      att_name='MemoryOrder';attlen=3
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro3dn(ii),att_name,attlen, 'XYZ' )
+      att_name='description'
+      value_chr=desc3dnew(ii)   ! Variable description = attribute(3)
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro3dn(ii),att_name,attlen, value_chr )
+      att_name='units'
+      value_chr=unit3dnew(ii)   ! Variable description = attribute(3)
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro3dn(ii),att_name,attlen, value_chr )
+      att_name='stagger';attlen=0
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro3dn(ii),att_name,attlen, '' )
+      att_name='coordinates';value_chr='XLONG XLAT'
+!     att_name='coordinates';value_chr='longitude latitude'
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro3dn(ii),att_name,attlen, value_chr )
+      att_name='grid_mapping';value_chr='latitude_longitude'
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro3dn(ii),att_name,attlen, value_chr )
+    enddo  ! Endof i=1,num3dnew loop
+!       write(*,'(A,A," : ",A)') ' Time attribs. in output netcdf ',att_name(1:40),value_chr(1:attlen)
+
+  end subroutine initializ_3d
+!-------------------------------------------------------------------------------------------
+  subroutine initializ_2d( cdfid,ncod)
+        
+  implicit none
+
+  include 'netcdf.inc'
+
+  integer , intent(in)                             :: cdfid, ncod         ! Unit numbers of netcdf input and output files
+  integer                                          :: rcode,rcodeo,L1C,L2C,id_var,i,ii,ivtype,ndims,natts,attlen,iatt
+  integer                                          :: dimids(10),dims(4)
+  character (len=80)                               :: varnam, att_name, value_chr
+!
+      ndims=3
+      dimids(1)=3
+      dimids(2)=4
+      dimids(3)=1
+      natts=6
+      do ii=1,num2dnew
+! Define new 2-D matrices, get ready to fill attributes for each matrix 
+      varnam=var2dnew(ii)
+      rcodeo = nf_def_var(ncod,varnam,NF_FLOAT,ndims,dimids,idvaro2dn(ii))
+      write(*,*)'New 2-D matrix,i,id_varo=',ii,idvaro2dn(ii),varnam
+      call flush(6)
+      att_name='FieldType';attlen=1
+      rcodeo = NF_PUT_ATT_INT(ncod, idvaro2dn(ii),att_name,NF_INT,attlen, 104 )
+      att_name='MemoryOrder';attlen=3
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro2dn(ii),att_name,attlen, 'XY ' )
+      att_name='description'
+      value_chr=desc2dnew(ii)   ! Variable description = attribute(3)
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro2dn(ii),att_name,attlen, value_chr )
+      att_name='units'
+      value_chr=unit2dnew(ii)   ! Variable description = attribute(3)
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro2dn(ii),att_name,attlen, value_chr )
+      att_name='stagger';attlen=0
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro2dn(ii),att_name,attlen, '' )
+!     att_name='coordinates';value_chr='XLONG XLAT'
+      att_name='coordinates';value_chr='longitude latitude'
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro2dn(ii),att_name,attlen, value_chr )
+      att_name='grid_mapping';value_chr='latitude_longitude'
+      attlen=index(value_chr,'  ')-1
+      rcodeo = NF_PUT_ATT_TEXT(ncod, idvaro2dn(ii),att_name,attlen, value_chr )
+    enddo  ! Endof i=1,num2dnew loop
+!       write(*,'(A,A," : ",A)') ' Time attribs. in output netcdf ',att_name(1:40),value_chr(1:attlen)
+
+  end subroutine initializ_2d
+!------------------------------------------------------------------------------
+  subroutine ncf_readwrite( cdfid,ncod,intime,iflag)
+        
+  implicit none
+
+  include 'netcdf.inc'
+
+  integer , intent(in)                             :: cdfid,ncod,iflag,intime  ! Unit numbers of netcdf input and output files
+  integer , save                                   :: nvars
+  integer                                          :: rcode,rcodeo,L1C,L2C,id_var,i,j,ii,ivtype,ndims,natts,attlen,iatt
+  integer                                          :: dimids(10),dims(4),istart(4),iend(4)
+  character (len=80)                               :: varnam, att_name, value_chr
+  integer , save                                   :: idvarorw(num_rw),idvarirw(num_rw),ndimkeep(num_rw),dimkeep(4,num_rw)
+! real, allocatable, dimension(:,:)                :: r2d
+! real, allocatable, dimension(:,:,:)              :: r3d
+  real, allocatable, dimension(:,:,:)                :: r2d_1
+  real, allocatable, dimension(:,:)                  :: r2d
+  real, allocatable, dimension(:,:,:,:)              :: r3d
+!
+      istart=1
+      if(iflag.eq.0)then
+       rcode = nf_inq_nvars ( cdfid, nvars )
+          write(*,*)'Initialize readwrite, nvars= ',nvars
+          call flush(6)
+         idvarirw=0
+         do ii=1,nvars
+         id_var=ii
+         rcode = nf_inq_var( cdfid, id_var , varnam, ivtype, ndims, dimids, natts )
+         L1C = max(1,index(varnam,' ')-1)
+         do i=1,num_rw
+         L2C = max(1,index(var_rw(i),' ')-1)
+         if(varnam(1:L1C).EQ.var_rw(i)(1:L2C))then
+          idvarirw(i)=ii
+          ndimkeep(i)=ndims
+! Define new 2 or 3-D matrix, get ready to fill attributes for each matrix 
+          write(*,*)'read-write Initialize ',varnam(1:L1C),' ndims=',ndims
+          call flush(6)
+          do j=1,ndims
+          rcode = nf_inq_dimlen( cdfid, dimids(j), dims(j) )
+          dimkeep(j,i)=dims(j)
+   write(*,'(2A,3(I,1X))')trim(varnam),', j,dimids(j),dims(j)=',j,dimids(j),dims(j)
+          enddo
+          ndims=2
+          dimids(1)=3 ! 5/26/20, Force dimids in output, may not be the same as input
+          dimids(2)=4 ! 5/26/20, Force dimids in output, may not be the same as input
+          rcodeo = nf_def_var(ncod,varnam,NF_FLOAT,ndims,dimids,idvarorw(i))
+          write(*,*)'New matrix,ii,ncod,id_varo=',ii,ncod,idvarorw(i)
+          call flush(6)
+          do iatt = 1,natts
+          rcode = nf_inq_attname(cdfid,id_var,iatt,att_name)
+!     rcode = nf_inq_att( cdfid,id_var,att_name,ivtype,attlen )
+          rcodeo=nf_copy_att(cdfid,id_var,att_name,ncod,idvarorw(i))
+          enddo
+        endif ! END OF if(varnam(1:L1C).EQ.var_rw(1:L2C)then
+        enddo ! END OF do i=1,num_rw
+        enddo ! END OF do ii=1,nvars
+! Check to make sure all variables you want to directly transfer are in the input file
+         do i=1,num_rw
+         if(idvarirw(i).eq.0)then
+         write(*,*)' Missing variable in input file=',var_rw(i),' Stopping'
+         stop'777'
+         endif
+         enddo
+      else ! conditional iflag>0 below, if(iflag.eq.0)then
+         do i=1,num_rw
+         istart=1
+         write(*,*)'retrieving ',var_rw(i),' , itimes=',intime
+         call flush(6)
+!        L2C = max(1,index(var_rw(i),' ')-1)
+          iend(1)=dimkeep(1,i)
+          iend(2)=dimkeep(2,i)
+          write(*,*)'i, ndimkeep(i),idvarirw(i)=',i,ndimkeep(i),idvarirw(i)
+          if(ndimkeep(i).eq.3)then
+!         iend(3)=max(intime,1)
+          iend(3)=1
+         write(*,*)'iend(1),iend(2),iend(3)=',iend(1),iend(2),iend(3)
+         if (allocated(r2d_1)) deallocate(r2d_1)
+         if (allocated(r2d)) deallocate(r2d)
+!        allocate ( r2d(iend(1),iend(2)))
+         allocate ( r2d_1(iend(1),iend(2),1))
+         call ncvgt( cdfid,idvarirw(i),istart,iend,r2d_1,rcode)
+!        iend(3)=Ntime_outf  ! 9/3/19 just fix XLAT,XLONG time dimension to Ntime_outf
+!        allocate ( r2d(iend(1),iend(2),iend(3)))
+         allocate ( r2d(iend(1),iend(2)))
+         r2d(:,:)=r2d_1(:,:,1)
+!        do j=1,Ntime_outf
+!        r2d(:,:,j)=r2d_1(:,:,1)
+!        enddo
+      rcodeo = NF_PUT_VARA_REAL( ncod,idvarorw(i),istart,iend,r2d)
+          elseif(ndimkeep(i).eq.4)then
+          istart(3)=1
+          iend(3)=dimkeep(3,i)
+          istart(4)=intime
+          iend(4)=1
+         if (allocated(r3d)) deallocate(r3d)
+!        allocate ( r3d(iend(1),iend(2),iend(3)))
+         allocate ( r3d(iend(1),iend(2),iend(3),iend(4)))
+         write(*,*)'iend(1),iend(2),iend(3)=',iend(1),iend(2),iend(3)
+         call ncvgt( cdfid,idvarirw(i),istart,iend,r3d,rcode)
+      rcodeo = NF_PUT_VARA_REAL( ncod,idvarorw(i),istart,iend,r3d)
+          else
+          write(*,*)'Dimen of readwrite ',var_rw(i),' not 2or 3'
+          write(*,*)'Dimension = ',ndimkeep(i),',Stopping'
+          call flush(6)
+          stop'777'
+          endif
+         enddo
+      endif ! END OF if(iflag.eq.0)then
+          write(*,*)'Done with wrf_readwrite'
+          call flush(6)
+
+  end subroutine ncf_readwrite
+!------------------------------------------------------------------------------
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+     END MODULE EMISSIONS_WPS_V6
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+     PROGRAM EMISS_TEST
+     USE EMISSIONS_WPS_V6
+     IMPLICIT NONE
+     call getarg(1,HR_range)
+     if(HR_range.NE.'00to12Z'.and.HR_range.NE.'12to24Z')then
+     STOP'Only 00to12Z or 12to24Z allowed on input'
+     endif
+
+     CALL  AL2RADM2
+
+     END PROGRAM EMISS_TEST
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+EOFA
+#
+if ( -e binei17.x ) rm binei17.x
+setenv LD_LIBRARY_PATH /lib:/usr/lib:/usr/local/lib:/usr/local/lib64
+setenv INCLUDEDIR /home/stu/util/wps/    # Directory where WPS coord. subroutines reside
+echo $LD_LIBRARY_PATH
+# pgf compiler on meiyu
+#    pgf90 -O3 binei17.f -fast -mp=allcores -Minfo -Bstatic_pgi -L/usr/local/lib64 -lnetcdf  \
+#   pgf90 binei17.f -g -C -mp=allcores -Minfo -Bstatic_pgi -L/usr/local/lib64 -lnetcdf  \
+#    /opt/pgi/linux86-64/14.10/bin/pgf90 binei17.f -O2 -mp=allcores -Minfo -Bstatic_pgi \
+#  -L/usr/local/lib64 -lnetcdf -lnetcdff -lhdf5 -lhdf5_hl -lz -I/usr/local/include \
+#  -I${INCLUDEDIR} -mcmodel=medium -Mfree -Mbyteswapio -o binei17.x
+   /opt/pgi/linux86-64/14.10/bin/pgf90 binei17.f -C -O2 -mp=allcores -Minfo -Bstatic_pgi \
+   -L/usr/local/lib64 -lnetcdf -lnetcdff -lhdf5 -lhdf5_hl -lz -I/usr/local/include \
+   -I${INCLUDEDIR} -mcmodel=medium -Mfree -Mbyteswapio -o binei17.x
+#     pgf90 -O3 binei17.f -fast -L${LD_LIBRARY_PATH} -mcmodel=medium \
+#     -I/usr/local/include -I${INCLUDEDIR} -Mfree -Mbyteswapio -o binei17.x
+
+date
+./binei17.x 00to12Z
+./binei17.x 12to24Z
+date
+#rm -f scratem
+
+end
+end
+exit

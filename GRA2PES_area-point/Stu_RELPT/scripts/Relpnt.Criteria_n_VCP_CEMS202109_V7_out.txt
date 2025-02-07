@@ -1,0 +1,33 @@
+nohup: ignoring input
+environment variable defined as INTERACTIVE
+Warning: ieee_inexact is signaling
+  999
+ No release pnt index file found in RLPTNDX, writing it
+ IFILIN=            1 ,Totl records=         84931  Totl captured=  
+        75096
+  Totl release points=          1259
+  Totl IPM release points=          2968
+ IFILIN=            2 ,Totl records=       5077591  Totl captured=  
+      5029293
+  Totl release points=        136078
+  Totl IPM release points=        440798
+ IFILIN=            3 ,Totl records=       5125946  Totl captured=  
+      5077641
+  Totl release points=        136920
+  Totl IPM release points=        444003
+ IFILIN=            4 ,Totl records=       6048748  Totl captured=  
+      5972884
+  Totl release points=        166690
+  Totl IPM release points=        528237
+  RLPTNDX Totl records=       6048748  Totl captured=       5972884
+  RLPTNDX Totl release points=        166690
+  RLPTNDX IPMfile Totl records=        528237
+  RLPTNDX SCCpoint Totl records=          4615
+  Release Point TYPE(            1 )=         30666
+  Release Point TYPE(            2 )=        122665
+  Release Point TYPE(            3 )=          7185
+  Release Point TYPE(            4 )=           367
+  Release Point TYPE(            5 )=          4952
+  Release Point TYPE(            6 )=           855
+Wed Jun 12 21:57:34 MDT 2024
+4883.953u 23.766s 1:21:51.43 99.9%	0+0k 38816+731984io 1pf+0w

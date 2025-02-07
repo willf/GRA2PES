@@ -1,0 +1,3197 @@
+# @$-r onroad                         # request name
+# 6/30/19 - Update to NEI-2014 and Speciate 4.5
+# 1/17/17 - Apply for winter (January) conditions
+# 3/14/15 Remove SCCs for Oil and Gas point source 31000101-31088811,40400300-40400340,30600801-30600999
+# 3/13/14 SAPRC-11 compatible
+# This program sums point emissions from NEI-2011 version 1 (10/22/13)
+# Point IPM emissions have no CEMS data, annual emissions only - use SCC based temporal profiles
+# to partition by Month, Weekday, Saturday or Sunday.
+# 9/27/03 - ISCCMX is number of SCCs in emissn file - must
+# supply these SCCs in fort.2 before program works now.
+#
+#               ********************************************
+#               *******      C shell for plot        *******
+#               ********************************************
+#
+#       this is INTERACTIVE or BATCH
+#
+if ( $?ENVIRONMENT ) then
+   echo "environment variable defined as $ENVIRONMENT"
+else
+   setenv ENVIRONMENT INTERACTIVE
+   echo "environment variable defined as $ENVIRONMENT"
+endif
+#
+#       have the temporary disk as default
+#
+#set ExpD = /wrk/d2/bmcdonald/NEI17/point/Month01/PtAdhesives
+set ExpD = /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_emis_CEMS202105/Month01/PtEGU_Coal ###CHANGE
+ if (   ! -d ${ExpD} ) then
+ mkdir  ${ExpD}
+ endif
+set ExpName = weekdy ###CHANGE
+#set ExpName = satdy
+#set ExpName = sundy
+#
+#       have the temporary disk as default
+if (   -d ${ExpD}/${ExpName} ) then
+   chdir  ${ExpD}/${ExpName}
+else
+   mkdir  ${ExpD}/${ExpName}
+   chmod 755 ${ExpD}/${ExpName}
+   chdir  ${ExpD}/${ExpName}
+endif
+#
+#       set up input units:
+if ( -e point.f ) rm point.f
+# echo "if ( -e point.f ) rm point.f"
+if ( -e fort.5 ) rm fort.5
+cat >fort.5<< EOFA
+1  # IDYoWK, day of week emission, 0=average,1=weekday,2=Saturday,3=Sunday ###CHANGE
+1  # IMONTH, month of year (1=January, 6=June, 12=December) ###CHANGE
+'/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Gen_RELPT_input/output/oilgas2_SmokeFlatFile_POINT_202406.csv' file of oil/gas point emissions
+'/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Gen_RELPT_input/output/egucems202105_2017NEI_POINT_202404.csv' file of CEMS EGU point emissions
+'/nfs/csd4/archive/stu/nei17/point_dat/egunoncems2_2017NEI_POINT_20200412.csv' file of nonCEMS EGU point emissions
+'/wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Gen_RELPT_input/output/nonegu2_SmokeFlatFile_POINT_202402.csv' file of nonEGU point emissions
+10100101 10100318   #EGU: Coal ###CHANGE
+10100801 10100801   #EGU: Coal2
+20100301 20100301   #EGU: Coal3
+EOFA
+#10100101 2275001000 #TotlPoint
+
+#10100101 10100318   #EGU: Coal
+#10100801 10100801   #EGU: Coal2
+#20100301 20100301   #EGU: Coal3
+#10100401 10100505   #EGU: Oil
+#20100101 20100109   #EGU: Oil2
+#20100901 20100909   #EGU: Oil3
+#10100601 10100712   #EGU: NG
+#10101001 10101002   #EGU: NG2
+#20100201 20100209   #EGU: NG3
+#20100702 20100707   #EGU: NG4
+#10100901 10100912   #EGU: BIO
+#10101101 10102101   #EGU: BIO2
+#20100801 20100809   #EGU: BIO3
+#
+#10200101 10200307   #IND: Coal
+#10200802 10200804   #IND: Coal2
+#39000199 39000399   #IND: Coal3
+#39000801 39000899   #IND: Coal4
+#10200401 10200506   #IND: Oil
+#10500105 10500105   #IND: Oil2
+#10500113 10500114   #IND: Oil3
+#20200101 20200109   #IND: Oil4
+#20200401 20200506   #IND: Oil5
+#20200901 20200909   #IND: Oil6
+#20201701 20201707   #IND: Oil7
+#20400101 20400499   #IND: Oil8
+#39000402 39000599   #IND: Oil9
+#39900501 39900501   #IND: Oil10
+#39901001 39901001   #IND: Oil11
+#10200601 10200799   #IND: NG
+#10201001 10201003   #IND: NG2
+#10500106 10500110   #IND: NG3
+#20200201 20200256   #IND: NG4
+#20200702 20200714   #IND: NG5
+#20201001 20201013   #IND: NG6
+#39000602 39000797   #IND: NG7
+#39001099 39001099   #IND: NG8
+#39900601 39900701   #IND: NG9
+#10200901 10200912   #IND: BIO
+#10201101 10201902   #IND: BIO2
+#20201602 20201609   #IND: BIO3
+#39000989 39000999   #IND: BIO4
+#39001289 39001399   #IND: BIO5
+#39900721 39900801   #IND: BIO6
+#39901601 39901601   #IND: BIO7
+
+#10300101 10300306   #COMM: Coal
+#10300401 10300505   #COMM: Oil
+#10500205 10500205   #COMM: Oil2
+#10500213 10500214   #COMM: Oil3
+#20300101 20300109   #COMM: Oil4
+#20300301 20300401   #COMM: Oil5
+#20300901 20300901   #COMM: Oil6
+#10300601 10300799   #COMM: NG
+#10301001 10301003   #COMM: NG2
+#10500206 10500206   #COMM: NG3
+#10500210 10500210   #COMM: NG4
+#20300201 20300209   #COMM: NG5
+#20301001 20301007   #COMM: NG6
+#10300811 10300912   #COMM: BIO
+#10301101 10301303   #COMM: BIO2
+#10500209 10500209   #COMM: BIO3
+#20300701 20300809   #COMM: BIO4
+
+#30100101 30199998   #CHEM
+#30800101 30899999   #CHEM2
+#64470010 68510001   #CHEM3
+#30200101 30299998   #FOOD
+#62540023 62540024   #FOOD2
+#30300001 30599999   #METAL
+#30900198 30999999   #METAL2
+#30600102 30699999   #REFINE
+#30700101 30799998   #PULP
+#31100102 31100299   #CONST
+#31300500 31399999   #ELECT
+#31400901 31499999   #MOTOR
+#32099997 33088801   #APPAREL
+#31501001 31501002   #PHOTO
+#31603001 31616006   #PHOTO2
+#31502001 31503102   #DRUG
+
+#40100101 40188898   #DEGREASING
+#40200101 40200601   #COAT
+#40200801 40299998   #COAT2
+#40200701 40200712   #ADHESIVE
+#36000101 36000103   #INK
+#40500204 40500806   #INK2
+
+#31000101 31088811   #OnG
+#40400300 40400340   #OnG2
+#31700101 31700101   #STORAGE
+#39090001 39092056   #STORAGE2
+#40301001 40400279   #STORAGE3
+#40400401 40400498   #STORAGE4
+#40600101 40600299   #STORAGE5
+#40700401 49099998   #STORAGE6
+#40600301 40688801   #EVAPGAS
+#28500201 28500201   #RAIL
+#20101020 20190099   #MISC
+#20280001 20282599   #MISC2
+#20380001 20380001   #MISC3
+#28888801 28888801   #MISC4
+#31504001 31505002   #MISC5
+#31801001 31801030   #MISC6
+#38500101 38500110   #MISC7
+#39902001 39999999   #MISC8
+
+#2265008005 2275001000 #AVIATION
+
+#'/wrk/d2/stu/nei17/point_dat/SmokeFlatFile_POINT_20200412.csv' file of CEMS EGU point emissions
+#'/wrk/d2/stu/nei17/point_dat/cmv_c3/ptinv_c3_cmv_point_2014fd_ff10_30jan2018_v0.csv' file of comm. marine vessel-3 point emissions
+#'/wrk/d2/stu/nei14/point_dat/2014fa_nata_cb6cmaq_14j/inputs/pt_oilgas/pt_oilgas_2014NEIv1_final_POINT_03nov2016_v3.csv' file of O/G point emissions
+#'/wrk/d2/stu/nei14/point_dat/cmv_c3/ptinv_c3_cmv_point_2014fd_ff10_30jan2018_v0.csv' file of comm. marine vessel-3 point emissions
+#'/wrk/d2/stu/nei14/point_dat/2014fa_nata_cb6cmaq_14j/inputs/ptegu/ptegu_2014NEIv1_final_POINT_02nov2016_v0.csv' file of IPM point emissions
+#'/wrk/d2/stu/nei14/point_dat/2014fa_nata_cb6cmaq_14j/inputs/ptnonipm/ptnonipm_2014NEIv1_final_POINT_commentfix_07mar2017_v0.csv' file of nonIPM point emissions
+if (   -d ./commons ) then
+   chdir  ./commons
+else
+   mkdir  ./commons
+   chmod 755 ./commons
+   chdir  ./commons
+endif
+if ( -e parame.h ) rm parame.h
+cat >parame.h<< EOFA
+C-----------------------------------------------------------------------
+      PARAMETER(ISCCMX=4615,NRECMX=6048748,NSITMX=90000) !from /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202105/relp4BMcD.outp
+      !ISCCMX: RLPTNDX SCCpoint Totl records=          4615
+      !NRECMX: RLPTNDX Totl records=       6048748
+C     PARAMETER(ISCCMX=4881,NRECMX=6899908,NSITMX=90000) ! NEI-2017, 7/23/20
+C     PARAMETER(ISCCMX=4924,NRECMX=8832901,NSITMX=90000) ! NEI-2014, 6/30/19
+C     PARAMETER(ISCCMX=4854,NRECMX=6482734,NSITMX=56382) ! NRECMX is sum of records in IPM plus nonIPM files 10/18/13
+C     PARAMETER(ISCCMX=4838,NRECMX=1158379,NSITMX=56382)  ! NEI-2005
+C     PARAMETER(NIPMMX=11627) ! Max IPM records, =IRLEMX in make_monthly_ipm.sub
+C     PARAMETER(NCEMMX=4455)  ! Max CEMs records, =ICEMP in cemhrly.sub
+      PARAMETER(NIPMMX=1) ! Max IPM records, =IRLEMX in make_monthly_ipm.sub
+      PARAMETER(NCEMMX=1)  ! Max CEMs records, =ICEMP in cemhrly.sub
+      PARAMETER(IX=1332,JX=1008,IP=IX+1,JP=JX+1,IM=IX-1,JM=JX-1)
+      PARAMETER(IPRI=8)  ! IPRI is number of primary species, CO2 added 12/8/20
+      PARAMETER(ISTCMX=99999)
+C     PARAMETER(ICONTY=3141)
+      PARAMETER(IZLEV=12,IZLVM=IZLEV-1,ISP2=4)
+C Parameters for indexing month, week, & day allocation profiles
+      PARAMETER(IMNMX=3082,IWKMX=111,IDYMX=13666)
+C Number of distinct U.S. IFIPS in tref file = IFIPMX
+      PARAMETER(IFIPMX=3460+1)  ! Add extra 56075 county not in FIPS file
+C Parameters for release point indexing
+      PARAMETER(ICEMMX=1)
+C     PARAMETER(ICEMMX=446871) NEI-2005
+      PARAMETER(IRLPMX=166690) !from /wrk/csd4/clyu/GHG_CO2/Improving_inventory/V7_GRA2PES2021/Stu_RELPT/output_RELPT_template_CEMS202105/relp4BMcD.outp
+      !IRLPMX: RLPTNDX Totl release points=        166690
+C     PARAMETER(IRLPMX=191836) ! NEI-17
+C     PARAMETER(IRLPMX=217394) ! NEI-14
+C     PARAMETER(IRLPMX=206621) ! NEI-11
+C     PARAMETER(IRLPMX=151040) ! NEI-2005
+C Number of VOC species in SAPRAC99 mechanism and Speciate3.2 Profile assignments
+C     PARAMETER(IVOCSAP=30,IVOCEX=12,IVOC=IVOCSAP+IVOCEX,IVOCPMX=1181)
+C     PARAMETER(IVOCSAP=35,IVOCEX=15,IVOC=IVOCSAP+IVOCEX,IVOCPMX=1793) ! 3/12/14 SAPRC-11,14 xtra, with 18 extra VOC profs for OnG
+C     PARAMETER(IVOCSAP=35,IVOCEX=15,IVOC=IVOCSAP+IVOCEX,IVOCPMX=2175) ! 6/29/19 SAPRC-11, for Speciate4.5 and NEI-2014
+      PARAMETER(IVOCSAP=35,IVOCEX=15,IVOC=IVOCSAP+IVOCEX,IVOCPMX=2550) ! 711/20 SAPRC-11, for Speciate5.0 and NEI-2017
+C Number of PM2.5 species in EPA PM speciation file, and "simple" PM2.5 profiles in Speciate4.0
+C     PARAMETER(IPM25=5,IPM2PMX=95)
+C     PARAMETER(IPM25=19,IPM2PMX=87)  ! NEI-2011 v1platform, SAPRC-11
+      PARAMETER(IPM25=19,IPM2PMX=1567)  ! NEI-2017 v1platform
+C  ITIMVAR: 1= hourly emis output,0= not
+      PARAMETER(ITIMVAR=1)
+C     PARAMETER(ITIMVAR=1,IDYoWK=1)
+      PARAMETER(IALLSP=IPRI+IVOC+IPM25)
+      PARAMETER(MxSCClim=7)
+C-----------------------------------------------------------------------
+C
+EOFA
+if ( -e mappar.h ) rm mappar.h
+cat >mappar.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /MAPPAR/ DX,XLATC,XLONC,IL,JL,PLM1,PLM2,PLM3,PLM4,IPROJ,
+     -CLAT1,CLAT2
+      COMMON /MAPNES1/ INEST1,XNESSTR,YNESSTR,DXBIGDO
+C
+EOFA
+if ( -e sccidex.h ) rm sccidex.h
+cat >sccidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /SC2SUR/ISCCNUM(ISCCMX)
+      COMMON /SCCS/SCCNUM(ISCCMX)
+      COMMON /SCCLIM/N_SCClim,ISCCLo(MxSCClim),ISCCHi(MxSCClim)
+      INTEGER*8 ISCCNUM
+      CHARACTER*10 SCCNUM
+      INTEGER*8 ISCCLo,ISCCHi
+C
+EOFA
+if ( -e tafidex.h ) rm tafidex.h
+cat >tafidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /SC2TAF/IFIPNM(IFIPMX),IFIPID(ISTCMX),IDMN(ISCCMX,IFIPMX),
+     -IDWK(ISCCMX,IFIPMX),IDDY(ISCCMX,IFIPMX),FSCMN(IMNMX),
+     -FSCWK(IWKMX,7),FSCDY(IDYMX,24)
+C     IDYoWK: 0=average,1=weekday,2=Saturday,3=Sunday
+      COMMON/DYOWK/IDYoWK,IMONTH
+C
+EOFA
+if ( -e nsitidex.h ) rm nsitidex.h
+cat >nsitidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON /EMSITE/EMISAN(NSITMX,7)
+      COMMON /CSITE/SITENAM(NSITMX)
+      CHARACTER*20 SITENAM
+C
+EOFA
+if ( -e vocidex.h ) rm vocidex.h
+cat >vocidex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON/VOC1/ ISCCVOC(ISCCMX,IFIPMX),PRFLUMP(IVOC,IVOCPMX)
+C
+EOFA
+if ( -e pm2idex.h ) rm pm2idex.h
+cat >pm2idex.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON/PM25/ ISCCPM2(ISCCMX),PRFLPM2(IPM25,IPM2PMX)
+C
+EOFA
+if ( -e names.h ) rm names.h
+cat >names.h<< EOFA
+C-----------------------------------------------------------------------
+C
+      COMMON/NAMER/NAM,INARG,NAMVOC(IVOC),NAMPM2(IPM25),
+     -SPECNAM(IPRI),NAMSP(IALLSP),CASENAM
+      COMMON/ZLEV/ ZLEV(IZLEV)
+      COMMON/DIRECTS/INDIR,INDIR2,INDIROnG,INDIRnoEGU,OUFIL
+      COMMON/INTGR1/LLET
+      CHARACTER*10 NAM
+      CHARACTER*130 INDIR,INDIR2,INDIROnG,INDIRnoEGU,OUFIL
+      CHARACTER*9 INARG
+      CHARACTER*10 NAMVOC
+      CHARACTER*10 NAMPM2
+      CHARACTER*8 SPECNAM
+      CHARACTER*10 NAMSP,CASENAM
+      INTEGER LLET
+EOFA
+if ( -e timvari.h ) rm timvari.h
+cat >timvari.h<< EOFA
+C-----------------------------------------------------------------------
+C
+      COMMON/TVREAL/EM(24,IRLPMX),CEMHRFAC(24)
+      COMMON/TVCHAR/TVDIRNM
+      CHARACTER*5 TVDIRNM
+EOFA
+if ( -e relpoin.h ) rm relpoin.h
+cat >relpoin.h<< EOFA
+C-----------------------------------------------------------------------
+      COMMON/RELPNTI/NRPTRK(NRECMX),COURELP(IRLPMX),XLTRELP(IRLPMX),
+     -XLNRELP(IRLPMX)
+      INTEGER NRPTRK,COURELP
+EOFA
+if ( -e pvars.h ) rm pvars.h
+cat >pvars.h<< EOFA
+C-----------------------------------------------------------------------
+C
+      COMMON/PVARI/ISTATE,ICOUN,IPER,IUTMZON,IRTYP,FUGHT,IYEAR
+      COMMON/PVARC/SITEID,UNITID,ERPTID,PROCID,ORISID,XYTYPE
+      COMMON/PVARI8/ISCC,ISTRMNDY,IENDMNDY
+      COMMON/PVAR/STKHGT,STKDIAM,ISTKTMP,STKFLOW,STKVEL,WINTHRU,
+     -SPRTHRU,SUMTHRU,FALTHRU,XLAT,XLON,ANN_EMS
+      INTEGER*8 I8PN1,I8PN2,ISCC,ISTRMNDY,IENDMNDY
+      COMMON/PCHARS/POLCODE,SITEDESC
+      CHARACTER*8 XYTYPE
+      CHARACTER*10 POLCODE
+      CHARACTER*15 SITEID
+      CHARACTER*8 UNITID,ERPTID,PROCID
+      CHARACTER*6 ORISID
+      CHARACTER*120 SITEDESC
+EOFA
+if ( -e latlonlm.h ) rm latlonlm.h
+cat >latlonlm.h<< EOFA
+C-----------------------------------------------------------------------
+C
+      PARAMETER(ICOMX=100)   ! Max number of counties going into lat-lon limits
+C     COMMON/LTLIM/LATSOU,LATNOR,LONEAS,LONWES
+      COMMON/LTLIM/LSTAT,LCOUN
+      COMMON/EMCOU2/EMTRX(ISCCMX,IPRI),VOCEM(ISCCMX,IVOC),PM2EM(ISCCMX,
+     -IPM25)
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      REAL LATSOU,LATNOR,LONEAS,LONWES
+EOFA
+cd ..
+rm -f point.f
+cat >point.f<< EOFB
+      PROGRAM MAIN
+C===============================================================================
+C
+C  This program plots EPA 1996 (NET V.5) emissions for selected Lambert map,
+C  for first cut,
+C===============================================================================
+      include 'commons/parame.h'
+      include 'commons/mappar.h'
+      include 'commons/names.h'
+      include 'commons/sccidex.h'
+      include 'commons/nsitidex.h'
+      include 'commons/tafidex.h'
+      include 'commons/latlonlm.h'
+      INTEGER*8 ISCCIN
+      DATA XP1,XP2/1.,1./
+C Nesting Corner of 4km EPA-surrogate file domain
+      DATA DX,INEST1,XNESSTR,YNESSTR/4.E3,0,0.,0./
+      DATA DXBIGDO,XLATC,XLONC,IL,JL/4.E3,40.,-97.,1369,1045/
+      DATA CLAT1,CLAT2,IPROJ/45.,33.,1/
+      DATA SPECNAM/'VOC','NOX','CO','SO2','PM10-PRI','PM25-PRI','NH3',
+     -'CO2'/
+      DATA (NAMVOC(I),I=1,IVOCSAP+IVOCEX)/
+     -' METHANE  ',' ALKANE1  ',' ALKANE2  ',' ALKANE3  ',' ALKANE4  ',
+     -' ALKANE5  ',' ETHYLENE ',' OLEFIN1  ',' OLEFIN2  ',' ISOPRENE ',
+     -' TERPENES ','AROMATIC1 ','AROMATIC2 ','   CH2O   ',' CH3CHO   ',
+     -'HI_ALDEHY ','BENZALDHY ',' ACETONE  ','   MEK    ','  PRD2    ',
+     -'   MEOH   ',' GLYOXAL  ','METHGLYOX ','   BACL   ',' PHENOLS  ',
+     -' CRESOLS  ','  MACR    ','  MVK     ','   IPRD   ',' HCOOH    ',
+     -' CH3COOH  ',' RCOOH    ',' XYLENEOLS',' CATECHOLS',' NONVOLATL',
+     -' PROPYLENE',' ACETYLENE',' BENZENE  ',' BUTANES  ',' PENTANES ',
+     -' TOLUENE  ',' m-XYLENE ',' o-XYLENE ',' p-XYLENE ',' PROPANE  ',
+     -'  DIENES  ',' STYRENES ',' ETHANOL  ','ETHE_GLYC ',' UNKNOWN  '/
+      DATA (NAMPM2(I),I=1,IPM25)/'PMFINE','PSO4','PNO3','POC','PEC',
+     -'PNCOM','PNH4','PAL','PCA','PFE','PH2O','PMG','PMOTHR','PK','PMN'
+     -,'PCL','PNA','PTI','PSI'/
+C     DATA LABL/' Plot to test incorporation of county boundaries  '/
+      CALL GETARG(1,INARG)
+      LLET=LNBLNK(INARG)
+      NAM=INARG
+      CASENAM=INARG
+      OUFIL='point.'//INARG(1:LLET)//'.outp'
+      OPEN(7,FILE=OUFIL)
+      OPEN(5,FILE='fort.5')
+      REWIND(5)
+      READ(5,*)IDYoWK
+      READ(5,*)IMONTH
+      WRITE(7,*)'IDYoWK,IMONTH= ',IDYoWK,IMONTH
+C     WRITE(7,*)'Removing VCPs and Oil/Gas'
+C     WRITE(*,*)'Removing VCPs and Oil/Gas'
+C     WRITE(7,*)'No removal of any SCC'
+C     WRITE(*,*)'No removal of any SCC'
+      READ(5,*)INDIROnG
+      READ(5,*)INDIR
+      READ(5,*)INDIR2
+      READ(5,*)INDIRnoEGU
+      N_SCClim=0
+ 5    CONTINUE
+      READ(5,*,END=12)ISCCLo(N_SCClim+1),ISCCHi(N_SCClim+1)  ! SCC limits (inclusive) for sector limited Emission output
+      N_SCClim=N_SCClim+1
+      GOTO 5
+ 12   CONTINUE
+      WRITE(7,*)N_SCClim,' SCC limits in this emission filter'
+      WRITE(*,*)N_SCClim,' SCC limits in this emission filter'
+      IF(N_SCClim.GT.0)THEN
+       DO I=1,N_SCClim
+       WRITE(7,*),I,ISCCLo(I),'-',ISCCHi(I)
+       WRITE(*,*),I,ISCCLo(I),'-',ISCCHi(I)
+       ENDDO
+      ENDIF
+      CLOSE(5)
+C Get release point indexing - relates each II in main emis file (1 to NRECMX) to a release point
+C through variable NRPTRK(NRECMX)
+      CALL RLPTNDX
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C     OPEN(2,FILE='/home/stu/emis/em11/EPAdata/pointSCClist.txt')
+C     OPEN(2,FILE='/home/stu/emis/em14/point/data_used/pointSCClist.txt')
+      OPEN(2,FILE='/wrk/csd4/clyu/relCEMS2105/pointSCClist_4BMcD.txt')
+      REWIND(2)
+      II=0
+ 9    CONTINUE
+      READ(2,*,END=10)ISCCIN
+      II=II+1
+      ISCCNUM(II)=ISCCIN
+      IF(ISCCIN.GT.99999999)THEN
+      WRITE(SCCNUM(II),'(I10)')ISCCNUM(II)
+      ELSE
+      WRITE(SCCNUM(II),'(I8)')ISCCNUM(II)
+      ENDIF
+      GOTO 9
+ 10   CONTINUE
+      IF(II.NE.ISCCMX)THEN
+      WRITE(*,*)' ISCCMX= ',ISCCMX, ' not input II= ',II 
+      WRITE(*,*)' Stopping'
+      STOP888
+      ENDIF
+      CLOSE(2)
+      CALL USFIPS
+      IF(INARG(1:LLET).EQ.'VOC')CALL VOCPRFC
+      IF(INARG(1:LLET).EQ.'PM25-PRI')CALL PM2PRFC
+      CALL SCC2TAF
+C     ISTOP=1
+C     IF(ISTOP.EQ.1)STOP999
+      CALL EMIS
+ 99   CONTINUE
+      CLOSE(7)
+      STOP9999
+       END
+      SUBROUTINE EMIS
+      include 'commons/parame.h'
+      PARAMETER(IZERO=ISTCMX*IPRI,IZR=ISCCMX*IPRI,IZR88=88*IPRI)
+      include 'commons/names.h'
+      include 'commons/sccidex.h'
+      include 'commons/nsitidex.h'
+      include 'commons/pvars.h'
+      include 'commons/timvari.h'
+      include 'commons/tafidex.h'
+      include 'commons/relpoin.h'
+      include 'commons/latlonlm.h'
+      DIMENSION ESPEC(IALLSP),WTMOL(IPRI),ETOTSV(IALLSP)
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      DIMENSION ETOTOnG(IPRI),EGUnoCM(IPRI),ETOTNOIPM(IPRI),EGUCEM(IPRI)
+      DIMENSION ECOUN(ISTCMX,IPRI),ESTATE(88,IPRI)
+      INTEGER IPRNT(ISTCMX)
+      INTEGER NPTRK(NRECMX),NSTRK(NRECMX),ISTYPE(NRECMX)
+      DIMENSION EMSAV(NRECMX,IPRI)
+      DIMENSION AVSPEM(7)
+      DIMENSION CEMIPMSV(NCEMMX,7),TVSAV(2,24)
+      DIMENSION CEMSCC(NCEMMX,ISCCMX)
+      DIMENSION EMPRMOU(IRLPMX)
+      CHARACTER*10 UNITS,UNFUGHT
+      CHARACTER*38 CPOTES
+      CHARACTER*20 CSITES
+      CHARACTER*6 C6DUM,COSIRB
+      CHARACTER*80 CDUM
+      CHARACTER*1 C1DUM,CHAR1
+      CHARACTER*10 NAMCOM
+      CHARACTER*8 DYLBL
+      CHARACTER*5 CCOUN
+      CHARACTER*8 CIRTYP
+      CHARACTER*10 CSCC
+      CHARACTER*4 CYEAR
+      INTEGER*8 ISCCIN
+      DATA IRELP/0/
+      DATA ICAPT,II/0,0/
+      DATA ECOUN/IZERO*0./
+      DATA ESTATE/IZR88*0./
+      DATA ETOTOnG/IPRI*0./
+      DATA EGUnoCM/IPRI*0./
+      DATA ETOTNOIPM/IPRI*0./
+      DATA EGUCEM/IPRI*0./
+      DATA EMTRX/IZR*0./
+      DATA ETOT/0./
+      DATA IPRNT/ISTCMX*0/
+      DATA IOTP,IOTHER/0,0/
+      DATA EMAX,EMIN/0.,1.E25/
+      DATA LOOKDAT,IPOIN,ISITN/0,0,0/
+      DATA XMPERFT/.31/
+      DATA KGPERTON/907.18/
+      DATA ETOTSV/IALLSP*0./
+C Molecular weights - assume VOC is propane
+      DATA WTMOL/44.,46.,28.,64.,0.,0.,17.,44./
+C     ISTOP=1
+C     IF(ISTOP.EQ.1)STOP999
+      EMPRMOU=0.
+      IPCOU=0
+      IINUM=0
+      ICNSCC=0
+      IFILIN=1
+      II=0
+      ICTEST=LCOUN+LSTAT*1000
+C     II=54498  ! Number of records in first (IPM) ptinv file - synced in NRBTRK variable
+      OPEN(8,FILE=INDIR2)
+ 88   CONTINUE
+C Determine number of header lines, rewind file, read to first line of data
+      IHEAD=0
+ 98   CONTINUE
+      READ(8,'(1A)')CHAR1
+      IF(CHAR1.NE.'#')GOTO 99
+      IHEAD=IHEAD+1
+      GOTO 98
+ 99   CONTINUE
+      IHEAD=IHEAD+1
+      REWIND(8)
+      WRITE(7,*)'IFILIN,IHEAD= ',IFILIN,IHEAD
+      CALL FLUSH(7)
+      DO I=1,IHEAD
+      READ(8,'(1X)')
+      ENDDO
+C You are now at beginning of first line.
+ 9    CONTINUE
+      IENDMNDY=0
+      FUGHT=0.
+      IOSIR=-99
+      COSIRB=''
+      SUMTHRU=-99.
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      READ(8,*,END=10,ERR=11)CDUM,CCOUN,CDUM,SITEID,UNITID,ERPTID,PROCID
+     -,CDUM,CDUM,CDUM,CDUM,CSCC,POLCODE,ANN_EMS,ADUM,SITEDESC,CIRTYP,
+     -STKHGT,STKDIAM,ISTKTMP,STKFLOW,STKVEL,CDUM,XLON,XLAT,CDUM,CDUM,
+     -ADUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,CDUM,
+     -CDUM,ORISID,COSIRB,CDUM,CYEAR,CDUM,FUGHT
+      READ(CCOUN,'(I)')ICOUN
+      READ(CIRTYP,'(I)')IRTYP
+      READ(CSCC,'(I)')ISCC
+      READ(CSCC,'(I10)')ISCCIN
+      READ(ORISID,'(I)',ERR=1119)IOSIR
+      GOTO 1120
+ 1119 CONTINUE
+C     WRITE(7,*)'Bad IOSIR,ORISID=',ORISID,'X'
+ 1120 CONTINUE
+      READ(CYEAR,'(I)')IYEAR
+      ISTRMNDY=IYEAR*10000+101   ! Force Annual emissions
+      IENDMNDY=IYEAR*10000+1231   ! Force Annual emissions
+      II=II+1
+C     IF(XLAT.LT.LATSOU.OR.XLAT.GT.LATNOR.OR.XLON.LT.LONWES.
+C    -OR.XLON.GT.LONEAS)GOTO 9
+C     IF(ICOUN.NE.ICTEST)GOTO 9
+      LLET2=LNBLNK(POLCODE) ! 9/29/20 Fixes bug when INARG=CO, prevent CO2 from being added
+      IF(INARG(1:LLET).NE.POLCODE(1:LLET2))GOTO 9
+C 3/14/15 Kick out oil/gas SCCs
+      IKEEP=1 ! For default, keep all SCCs if no SCC limits in input file 12/8/20
+      IF(N_SCClim.GT.0)THEN
+      IKEEP=0
+       DO I=1,N_SCClim
+       IF(ISCCIN.GE.ISCCLo(I).AND.ISCCIN.LE.ISCCHi(I))IKEEP=1
+       ENDDO
+      ENDIF
+      IF(IKEEP.EQ.0)GOTO 9
+      ISTATE=ICOUN/1000
+      ICCCN=ICOUN-ISTATE*1000
+C Ignore Blank Lines
+      IF(ICOUN.EQ.0)GOTO 9
+C     EMISN=EMISN7(ISPDO)
+C     UNITS=UNITS7(ISPDO)
+      IF(ANN_EMS.LE.0.)GOTO 9
+      IF(IPCOU.LE.50)THEN
+C     IF(POLCODE(1:3).EQ.'VOC')THEN
+      IPCOU=IPCOU+1
+C     IF(II.LE.54650)THEN
+      CALL PRNTREC(II,7)
+      ENDIF
+      ISPDO=0
+      DO I=1,IPRI
+      IF(trim(POLCODE).EQ.trim(SPECNAM(I)))ISPDO=I
+      ENDDO
+      IF(ISPDO.EQ.0)THEN
+      GOTO 9 ! Skip over if entry is a HAP 10/28/13
+C     WRITE(7,*)'Something wrong,species readin, POLCODE=',POLCODE
+C     WRITE(*,*)'Something wrong,species readin, POLCODE=',POLCODE
+C     STOP777
+      ENDIF
+C Skip over Alaska, Hawaii, Puerto Rico (72) and Virgin Islands (78), Guam (66)
+C     IF(ISTATE.EQ.2.OR.ISTATE.EQ.15.OR.ISTATE.GT.56)GOTO 9
+C Tribal land has ISTATE=88, dont toss these out
+      IF(ISTATE.EQ.2.OR.ISTATE.EQ.15.OR.ISTATE.EQ.72.OR.ISTATE.EQ.78.
+     -OR.ISTATE.EQ.66)GOTO 9
+      ICAPT=ICAPT+1
+      IMTX=NRPTRK(II)
+      DO I=1,ISCCMX
+       IF(ISCC.EQ.ISCCNUM(I))THEN
+       ISC=I
+       GOTO 188
+       ENDIF
+      ENDDO
+      WRITE(*,*)'No SCC found on second pass,ISCC= ',ISCC
+      WRITE(7,*)'No SCC found on second pass,ISCC= ',ISCC
+        CALL PRNTREC(II,7)
+        STOP888
+ 188  CONTINUE
+      ICOFIP=0
+      ISTFIP=0
+      ISTATES=1000*ISTATE
+      DO JJ=1,IFIPMX
+      IF(IDMN(ISC,JJ).GT.0)THEN
+      IF(ICOUN.EQ.IFIPNM(JJ))ICOFIP=JJ
+      IF(ISTATES.EQ.IFIPNM(JJ))ISTFIP=JJ
+      ENDIF
+      ENDDO
+      IF(ICOFIP.GT.0)THEN
+      IFIP=ICOFIP
+      ELSEIF(ISTFIP.GT.0)THEN
+      IFIP=ISTFIP
+      ELSE
+      IFIP=1
+      ENDIF
+C 12/22/08 - Time allocation depends on IFIP (state,county) as well as SCC
+C IFIPNM is list of IFIPS from SCC2TAF, could be 0 (defalt), 1 thru 56 (statewide) or 1001 to 56999 (per county)
+      ISTFIP=-999
+      ICOFIP=-999
+C     XMONFC=1./365.   ! conversion factor from ton/yr to ton/dy - default for itimvar=0
+      IF(IDMN(ISC,IFIP).GT.0)THEN
+      IMNDX=IDMN(ISC,IFIP)
+      XMONFC=FSCMN(IMNDX)*12./365.
+C     ICOUD=ICOUD+1
+C     IF(ICOUD.LE.200)THEN
+C     IF(ICOUN.EQ.20015)THEN
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C     WRITE(7,*)'Thrpttrf,II,SCC,COU=',II,SCCNUM(ISC),ICOUN,XMONFC,IMNDX
+C     CALL FLUSH(7)
+C     ENDIF
+      ELSE
+      WRITE(7,'(A,2I11,A11,I7)')'No monthly TAFF,ISC,IFIP,SCC,ICOUN=',
+     -ISC,IFIP,SCCNUM(ISC),ICOUN
+      WRITE(*,'(A,2I11,A11,I7)')'No monthly TAFF,ISC,IFIP,SCC,ICOUN=',
+     -ISC,IFIP,SCCNUM(ISC),ICOUN
+      STOP777
+      ENDIF
+C
+      IF(IDWK(ISC,IFIP).LE.0.OR.IDDY(ISC,IFIP).LE.0)THEN
+      WRITE(7,'(A,2I11,A11,I7)')'No TAFF,ISC,IFIP,SCC,ICOUN=',ISC,IFIP,
+     -SCCNUM(ISC),ICOUN
+      WRITE(*,'(A,2I11,A11,I7)')'No TAFF,ISC,IFIP,SCC,ICOUN=',ISC,IFIP,
+     -SCCNUM(ISC),ICOUN
+      STOP777
+      ENDIF
+      IF(SUMTHRU.GT.0.)THEN
+        EMISN=ANN_EMS*SUMTHRU/100./91.25
+      ELSE
+        EMISN=ANN_EMS*XMONFC  ! emissions are now ton/dy
+      ENDIF
+      IF(ITIMVAR.EQ.1)THEN
+      CALL DYoWKFAC(ISC,IFIP,0,FACDY)
+      ELEMADD=EMISN*FACDY
+      ELSE
+      ELEMADD=EMISN
+      ENDIF
+      IINUM=IINUM+1
+C     IF(IINUM.LE.100)THEN
+C     WRITE(7,*)'ISC,IMTX,FACDY,ELEMADD=',ISC,IMTX,FACDY,ELEMADD
+C     CALL FLUSH(7)
+C     ENDIF
+      EMPRMOU(IMTX)=EMPRMOU(IMTX)+ELEMADD ! output primary emissions in ton/dy
+      EMTRX(ISC,ISPDO)=EMTRX(ISC,ISPDO)+ELEMADD
+      ECOUN(ICOUN,ISPDO)=ECOUN(ICOUN,ISPDO)+ELEMADD
+      ESTATE(ISTATE,ISPDO)=ESTATE(ISTATE,ISPDO)+ELEMADD
+      IF(IFILIN.EQ.1)EGUnoCM(ISPDO)=EGUnoCM(ISPDO)+ELEMADD
+      IF(IFILIN.EQ.2)ETOTNOIPM(ISPDO)=ETOTNOIPM(ISPDO)+ELEMADD
+      IF(IFILIN.EQ.4)ETOTOnG(ISPDO)=ETOTOnG(ISPDO)+ELEMADD
+      IF(IFILIN.EQ.3)EGUCEM(ISPDO)=EGUCEM(ISPDO)+ELEMADD
+      IF(ITIMVAR.EQ.1)THEN
+      CALL TIMZON(ICOUN,IHRDIF)
+C Time allocation factors are for local time, daylight savings handled in TIMZON,
+        ICEMSW=0  !  This is assume weekly average emission, need EPA guidance
+        CALL TIMVAR(ISC,IFIP,IMTX,ELEMADD,IHRDIF,ICEMSW)
+      ENDIF
+      IF(NAM(1:3).EQ.'VOC')CALL VOCSPEC(ISC,IFIP,IMTX,ELEMADD,IHRDIF,0)
+      IF(NAM(1:8).EQ.'PM25-PRI')CALL PM2SPEC(ISC,IFIP,IMTX,ELEMADD,
+     -IHRDIF,0)
+C     IF(ISPDO.EQ.1)CALL VOCSPEC(ISC,IFIP,IMTX,ELEMADD,IHRDIF,0)
+C     IF(ISPDO.EQ.6)CALL PM2SPEC(ISC,IFIP,IMTX,ELEMADD,IHRDIF,0)
+C Print Wild NOx point in Florida
+C     IF(IMTX.EQ.1109.AND.JMTX.EQ.174)THEN
+C Print Cumberland, TN plant
+C     IF(IMTX.EQ.892.AND.JMTX.EQ.433)THEN
+C     WRITE(7,*)' Cumberland Point I,J,II = ',IMTX,JMTX,II
+C Print Cumberland, TN plant
+      IF(ICOUN.EQ.21177.AND.SITEID.EQ.'2117700006     ')THEN
+      WRITE(7,*)' Paradise Point IMTX,II = ',IMTX,II
+      CALL PRNTREC(II,7)
+      ENDIF
+      IPRNT(ICOUN)=1
+C Following Keeps Track of County-SCC
+C Emissions in Matrix ECNTSC, just like the area sources SAM 10/24/03
+C     ECNTSC(ICOUN,ISC)=ECNTSC(ICOUN,ISC)+ELEMADD
+      GOTO 9
+ 10   CONTINUE
+C Done with first read-through of file - start second readthrough,
+      CLOSE(8)
+C There are 4 files (IMP,nonIMP,OnG,cmv-3) that need to be read in
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(7,*)'IFILIN=',IFILIN,',Totl records= ',II,' Totl captured= '
+     -,ICAPT
+      WRITE(*,*)'IFILIN=',IFILIN,',Totl records= ',II,' Totl captured= '
+     -,ICAPT
+      WRITE(7,*)' Totl release points= ',IRELP
+      WRITE(*,*)' Totl release points= ',IRELP
+      WRITE(7,*)' Totl IPM release points= ',ICEMP
+      WRITE(*,*)' Totl IPM release points= ',ICEMP
+      CALL FLUSH(7)
+      IF(IFILIN.NE.4)THEN
+      IFILIN=IFILIN+1
+      IF(IFILIN.EQ.2)OPEN(8,FILE=INDIRnoEGU)
+      IF(IFILIN.EQ.3)OPEN(8,FILE=INDIR)
+      IF(IFILIN.EQ.4)OPEN(8,FILE=INDIROnG)
+      REWIND(8)
+      GOTO 88
+      ENDIF
+      WRITE(*,*)' Done loading all species'
+      WRITE(7,*)' Done loading all species'
+      CLOSE(8)
+      LLET=LNBLNK(CASENAM)
+      OUFIL=CASENAM(1:LLET)//'_sums.txt'
+      IF(IDYoWK.EQ.1)DYLBL='Weekday'
+      IF(IDYoWK.EQ.2)DYLBL='Saturday'
+      IF(IDYoWK.EQ.3)DYLBL='Sunday'
+      LLD=LNBLNK(DYLBL)
+      OUFIL='point_'//CASENAM(1:LLET)//'_'//DYLBL(1:LLD)//'_sums.txt'
+      OPEN(8,FILE=OUFIL)
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(8,'(15X,A)')'EGUnoCEM noEGU    Oil/Gas    EGU-CEM (ton/dy)'
+C     DO L=1,IPRI
+      L=ISPDO
+      NAMCOM=SPECNAM(L)
+      WRITE(8,206)NAMCOM,EGUnoCM(L),ETOTNOIPM(L),ETOTOnG(L),EGUCEM(L)
+C     ENDDO
+ 206  FORMAT(A10,1P,4(1X,E10.3))
+C     DO L=1,IPRI
+C     NAM=SPECNAM(L)
+      L=ISPDO
+      ETOT=0.
+      DO I=1,88
+      ETOT=ETOT+ESTATE(I,L)
+      ENDDO
+      WRITE(8,200)NAM,ETOT
+ 200  FORMAT(A10,' TOTAL emissions= ',1PE10.3)
+      WRITE(8,202)
+ 202  FORMAT('ISTATE STATE_EMIS')
+      DO ISTATE=1,88
+      IF(ESTATE(ISTATE,L).NE.0.)WRITE(8,203)ISTATE,ESTATE(ISTATE,L)
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+ 203  FORMAT(2X,I2,3X,1PE10.3)
+      ENDDO
+      WRITE(8,204)
+ 204  FORMAT('ICOUN COUNTY_EMIS')
+      DO ICOUN=1001,ISTCMX
+      IF(ECOUN(ICOUN,L).GT.0.)WRITE(8,205)ICOUN,ECOUN(ICOUN,L)
+ 205  FORMAT(I5,1X,1PE10.3)
+      ENDDO
+      WRITE(8,*)
+      EMIN=1.E25
+      EMAX=0.
+      DO 41 I=1,ISCCMX
+       ISC=I
+      IF(EMTRX(ISC,L).GT.EMAX)THEN
+       EMAX=EMTRX(ISC,L)
+       IEMAX=ISC
+      ENDIF
+      IF(EMTRX(ISC,L).LT.EMIN.AND.EMTRX(ISC,L).GT.0.)
+     -EMIN=EMTRX(ISC,L)
+ 41   CONTINUE
+      WRITE(*,*)' Done processing ',NAM
+      WRITE(*,*)' Min nonzero emission(ton/dy)= ',EMIN
+      WRITE(*,*)' Max emission= ',EMAX,' I= ',IEMAX
+      WRITE(7,*)' Done processing ',NAM
+      WRITE(7,*)' Min nonzero emission= ',EMIN,' Max emission= ',EMAX
+      WRITE(7,*)' Max emission= ',EMAX,' I= ',IEMAX
+C     WRITE(7,*)' Number of release points with emissions= ',JJ
+C     ENDDO   ! Endo of L=1,IPRI loop
+      CALL FLUSH(7)
+      OUFIL='point.'//INARG(1:LLET)//'.emis'
+      OPEN(8,FILE=OUFIL,FORM='UNFORMATTED')
+      WRITE(8)EMPRMOU
+      CLOSE(8)
+C     OPEN(8,FILE='point_nox_emis.txt')
+C     DO I=1,IX
+C     WRITE(8,'(1PE10.3)')EMTRX(I)
+C     ENDDO
+C     ENDDO
+C     CLOSE(8)
+C     OUFIL='point_'//INARG(1:LLET)//'_cntsc.bin'
+C     OPEN(8,FILE=OUFIL,FORM='UNFORMATTED')
+C     WRITE(8)ECNTSC
+C     CLOSE(8)
+      IF(ITIMVAR.EQ.1)CALL TIMVAR(-99,1001,1,0.,0,0)
+      IF(NAM(1:3).EQ.'VOC')CALL VOCSPEC(-99,1001,1,0.,0,0)
+      IF(NAM(1:8).EQ.'PM25-PRI')CALL PM2SPEC(-99,1001,1,0.,0,0)
+      CLOSE(8)
+      CALL FLUSH(7)
+Cnosum      CLOSE(9)
+Cnosum      CSCC='0'
+Cnosum      CALL ASCCSUM(CSCC,ESPEC)
+Cnosum      OPEN(9,FILE=CASENAM(1:LLET)//'.'//DYLBL(1:LLD)//'.sumbySCC.point')
+CnosumC     XLT=.5*(LATSOU+LATNOR)
+CnosumC     CFC=3.141592653/180.
+CnosumC     EAREA=COS(CFC*XLT)*(LATNOR-LATSOU)*(LONEAS-LONWES)*(6370.*CFC)**2
+Cnosum      EAREA=0.
+CnosumC23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+CnosumCC     WRITE(9,*)'Point ',CASENAM,' OSD',' mole/hr (PM in ton/dy)'
+CnosumC     WRITE(9,'(A10,A,4F11.4,A,F13.4)')CASENAM,' Lat,Lon limits=',LATSOU
+CnosumC    -,LATNOR,LONWES,LONEAS,' Emiss area (km^2)=',EAREA
+CnosumC     WRITE(9,'(5A,I2,A,I2,A,I2,A)')'Area ',CASENAM,',',DYLBL,', ',
+CnosumC    -IPRI,' Primary Spec., ',IVOC,' Spec. VOC, ',IPM25,
+CnosumC    -' Spec. PM25, All gases in mole/hr (VOC as C3H8 equiv), all PM spe
+CnosumC    -cies in ton/dy'
+Cnosum      WRITE(9,'(A10,A,2I4,A,F13.3)')CASENAM,' State,County= ',LSTAT,
+Cnosum     -LCOUN,' Emiss area (km^2)=',EAREA
+Cnosum      WRITE(9,'(5A,I2,A,I2,A,I2,A)')'Point ',CASENAM,',',DYLBL,', ',
+Cnosum     -IPRI,' Primary Spec., ',IVOC,' Spec. VOC, ',IPM25,
+Cnosum     -' Spec. PM25, All Primary and PM in ton/dy, speciated gases in mol
+Cnosum     -e/hr'
+Cnosum      DO I=1,IPRI
+Cnosum      NAMSP(I)=SPECNAM(I)
+Cnosum      ENDDO
+Cnosum      DO I=1,IVOC
+Cnosum      NAMSP(I+IPRI)=NAMVOC(I)
+Cnosum      ENDDO
+Cnosum      DO I=1,IPM25
+Cnosum      NAMSP(I+IPRI+IVOC)=NAMPM2(I)
+Cnosum      ENDDO
+Cnosum      DO I=1,ISCCMX
+Cnosum      ISCC=ISCCNUM(I)
+CnosumC Convert Primary species (except PM2.5) from ton/day to mole/hr
+Cnosum      DO J=1,IPRI
+Cnosum      NAM=SPECNAM(J)
+CnosumC     IF(NAM(1:2).NE.'PM')THEN
+CnosumC     ESPEC(J)=EMTRX(I,J)*1000.*KGPERTON/WTMOL(J)/24.
+CnosumC     ELSE
+Cnosum      ESPEC(J)=EMTRX(I,J)
+CnosumC     ENDIF
+Cnosum      ENDDO
+Cnosum      DO J=1,IVOC
+Cnosum      ESPEC(J+IPRI)=VOCEM(I,J)
+Cnosum      ENDDO
+Cnosum      DO J=1,IPM25
+Cnosum      ESPEC(J+IPRI+IVOC)=PM2EM(I,J)
+Cnosum      ENDDO
+Cnosum      CSCC=''
+Cnosum      IF(ISCC.GT.99999999)THEN
+Cnosum      WRITE(CSCC,'(I10)')ISCC
+Cnosum      ELSE
+Cnosum      WRITE(CSCC(1:8),'(I8)')ISCC
+Cnosum      ENDIF
+Cnosum      CALL ASCCSUM(CSCC,ESPEC)
+Cnosum      DO J=1,IALLSP
+Cnosum      ETOTSV(J)=ETOTSV(J)+ESPEC(J)
+Cnosum      ENDDO
+Cnosum      ENDDO  ! end of ISCCMX loop
+Cnosum      DO 1312 L=1,IALLSP
+Cnosum      WRITE(9,'(F12.2,1X,A10)')ETOTSV(L),NAMSP(L)
+Cnosum 1312 CONTINUE
+Cnosum      NAM='Point'
+Cnosum      CSCC='-999'
+Cnosum      CALL ASCCSUM(CSCC,ESPEC)
+      CLOSE(9)
+      CLOSE(8)
+      CLOSE(7)
+      RETURN
+C Error on file read, if it is just the last record (NRECMX), ignore error
+ 11   CONTINUE
+      IF(II.LT.NRECMX)THEN
+      WRITE(*,*)'Error reading file, stopping, II= ',II
+      WRITE(7,*)'Error reading file, stopping, II= ',II
+      WRITE(7,*)'Total records captured for ',NAM,' = ',ICAPT
+      CALL PRNTREC(II,7)
+      STOP
+      ENDIF
+      END
+      SUBROUTINE USFIPS
+C *******************************************************************
+C  Reads state and county codes from EPA file that came with v1platform
+C data with the NEI-2011, downloaded 11/9/13
+C 11/18/13 - There is a weird Wyoming county 56075 Not in the FIPS file.
+C This corresponds to Powder River Gas&Oil operations in Montana, that are
+C part of spatial partitioning/Oil and Gas emissions files.  Add one
+C extra county to list.
+C This subroutine essentially fills the array IFIPNM(IFIPMX)
+      include 'commons/parame.h'
+      include 'commons/tafidex.h'
+      CHARACTER*4 CHAR4
+      IFIPNM=-999
+      IFIPID=-999
+      IFIPNM(1)=0
+      NIFIPS=1   ! number of different IFIPS read in
+      CLOSE(8)
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      OPEN(8,FILE='/wrk/d1/stu/nei11/EPAdata/v1platform/ge_dat/costcy_fo
+     -r_2007platform_10may2013_v8.txt')
+ 98   CONTINUE
+      READ(8,'(A)')CHAR4
+      IF(CHAR4(2:4).NE.'STA')GOTO 98
+      DO I=1,72
+      READ(8,'(1X,I2)')IFIP
+      NIFIPS=NIFIPS+1
+      II=IFIP*1000
+      IFIPID(II)=NIFIPS
+      IFIPNM(NIFIPS)=II
+      ENDDO
+ 99   CONTINUE
+      READ(8,'(A)')CHAR4
+      IF(CHAR4(2:4).NE.'COU')GOTO 99
+      DO I=1,3387
+      READ(8,'(26X,I2,I3)')ISTAT,ICOU
+      IFIP=1000*ISTAT+ICOU
+      NIFIPS=NIFIPS+1  ! Title line has no # character
+      IF(NIFIPS.GT.IFIPMX)THEN
+      WRITE(7,*)'IFIPMX too small, stopping'
+      WRITE(*,*)'IFIPMX too small, stopping'
+      CALL FLUSH(7)
+      STOP'777'
+      ENDIF
+      IFIPID(IFIP)=NIFIPS
+      IFIPNM(NIFIPS)=IFIP
+      ENDDO
+      IFIPID(56075)=IFIPMX
+      IFIPNM(IFIPMX)=56075
+      CLOSE(8)
+      RETURN
+      END
+C *******************************************************************
+      SUBROUTINE SCC2TAF
+C  Reads temporal allocation factors and assigns to appropriate SCC
+C 6/13/08 onnonroad processing has species and emission type dependece
+      include 'commons/parame.h'
+C Parameters for indexing month, week, & day allocation profiles
+C 6/13/08 IDMN,IDWK,IDDY are now indexes pointing to first index of FSCMN,FSCWK,FSCDY
+      include 'commons/names.h'
+      include 'commons/sccidex.h'
+      include 'commons/tafidex.h'
+      DIMENSION FMNSV(IMNMX)
+      INTEGER FMN(12),FWK(7),FDY(24)
+      INTEGER IMNSV(IMNMX),IWKSV(IWKMX),IDYSV(IDYMX)
+      CHARACTER*10 SCC
+      CHARACTER*16 POL
+      CHARACTER*6 CFIP
+      INTEGER FTOT
+      DATA ITIMES/0/
+      SAVE
+      ITIMES=ITIMES+1
+      IF(ITIMES.EQ.1)THEN
+      WRITE(*,*)'Reading month TAF,assigning to SCC,IMONTH=',IMONTH
+      CLOSE(8)
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      OPEN(8,FILE='/wrk/d1/stu/nei11/EPAdata/v1platform/ge_dat/amptpro_f
+     -or_2011_platform_with_carb_mobile_2011CEM_moves_13aug2013_v0')
+      DO I=1,20
+      READ(8,*)
+      ENDDO
+      II=0
+      DO 90 II=1,IMNMX
+      READ(8,'(I5,12I4,I5)')IMN,(FMN(J),J=1,12),FTOT
+      RTOT=0.
+      DO J=1,12
+      RTOT=RTOT+FLOAT(FMN(J))
+      ENDDO
+      IMNSV(II)=IMN
+      IF(RTOT.GT.0.)THEN
+      FSCMN(II)=FLOAT(FMN(IMONTH))/RTOT
+      ELSE
+      WRITE(7,*)' No monthly variation,IMN= ',IMN
+      WRITE(*,*)' No monthly variation,IMN= ',IMN
+C     STOP777
+      ENDIF
+  90  CONTINUE
+      WRITE(*,*)'Reading week TAF and assigning to SCC'
+      READ(8,*)
+      READ(8,*)
+      DO 91 II=1,IWKMX
+      READ(8,'(I5,7I4,I6)')IWK,(FWK(J),J=1,7),FTOT
+      IWKSV(II)=IWK
+      DO J=1,7
+      FSCWK(II,J)=FLOAT(FWK(J))/FLOAT(FTOT)
+      ENDDO
+C     WRITE(7,*)'II,IWKSV=',II,IWKSV(II)
+  91  CONTINUE
+      WRITE(*,*)'Reading day TAF and SCC assign,IDYoWK=',IDYoWK
+      WRITE(7,*)'Reading day TAF and SCC assign,IDYoWK=',IDYoWK
+      IF(IDYoWK.LE.0.OR.IDYoWK.GT.7)THEN
+      WRITE(*,*)'IDYoWK= ',IDYoWK,' dont know what to do,stopping'
+      STOP777
+      ENDIF
+C 3/14/15 Fix hourly temporal factor for weekends. Use Monday for weekday
+C     ISKIP=2+(IDYoWK-1)*(IDYMX+2)
+      IDYskip=1
+      IF(IDYoWK.EQ.2)IDYskip=6
+      IF(IDYoWK.EQ.3)IDYskip=7
+      ISKIP=2+(IDYskip-1)*(IDYMX+2)
+      DO I=1,ISKIP
+      READ(8,*)
+      ENDDO
+      DO 92 II=1,IDYMX
+      READ(8,'(I5,24I4,I5)')IDY,(FDY(J),J=1,24),FTOT
+      RTOT=0.
+      DO J=1,24
+      RTOT=RTOT+FLOAT(FDY(J))
+      ENDDO
+      IDYSV(II)=IDY
+      DO J=1,24
+C     FSCDY(II,J)=FLOAT(FDY(J))/FLOAT(FTOT)
+      FSCDY(II,J)=FLOAT(FDY(J))/RTOT
+      ENDDO
+C     WRITE(7,*)'II,IDYSV=',II,IDYSV(II)
+C     CALL FLUSH(7)
+  92  CONTINUE
+      CLOSE(8)
+      ENDIF  ! endof IF(ITIMES.EQ.1)THEN
+      WRITE(*,*)'Reading SCC-TAF cross reference, setting up indexing'
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C 3/13/14 - Following file has temporal profiles not in NEI-11 release
+C But it has FIP dependent NH3 emissions
+C     OPEN(8,FILE='/wrk/d1/stu/nei11/EPAdata/v1platform/ge_dat/Gentpro_T
+C    -REF_HOURLY_BASH_NH3_agNH3_bash_2011ea_11f_newgent_emf_txt_06sep201
+C    -3_nf_v4')
+C     DO I=1,21
+      OPEN(8,FILE='/wrk/d1/stu/nei11/EPAdata/v1platform/ge_dat/Gentpro_T
+     -REF_DAILY_RWC_RWC_2011_28jun2013_v1')
+      DO I=1,6
+      READ(8,*)
+      ENDDO
+      II=0
+ 9    CONTINUE
+      IMN=0
+      IWK=0
+      IDY=0
+      POL=''
+      IFIP=0
+      CFIP=''
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      READ(8,*,END=10)SCC,IMN,IWK,IDY,POL,CFIP
+      IF(CFIP.NE.'')THEN
+      READ(CFIP,'(I)')IFIP
+      ENDIF
+C Kick out Canadian profiles 12/19/08
+      IF(IFIP.GT.100000)GOTO 9
+      DO 75 I=1,ISCCMX
+      ISAV=0
+      IF(SCC.EQ.SCCNUM(I))THEN
+C A match to emission file SCC was found
+      LSPN=LNBLNK(POL)
+      IF(POL.EQ.''.OR.(NAM(1:LLET).EQ.POL(1:LSPN)))THEN
+      IF(ISAV.EQ.0)ISAV=1 ! Default SCC - independent of species
+      ELSEIF(NAM(1:LSPN).EQ.POL(6:6+LSPN-1))THEN ! Species dependent exhaust or evap found
+        WRITE(*,*)'Bad TAF -like onnonroad,SCC,POL,NAM=',SCC,POL,NAM
+        WRITE(7,*)'Bad TAF -like onnonroad,SCC,POL,NAM=',SCC,POL,NAM
+        STOP777
+      ENDIF
+      LSPN=MAX(1,LSPN)
+      ENDIF ! SCC = SCCNUM(I) test
+      IF(ISAV.EQ.0)THEN
+      GOTO 75
+      ELSE
+C 12/22/08 - Have I (SCC index number) now determine IFIP index number
+C Index number 1 is the default (IFIP in readin = 0 (or not specified))
+C Check to make sure IFIP is valid (within IFIPNM)
+      DO II=1,IFIPMX
+      IF(IFIP.EQ.IFIPNM(II))THEN
+      IFIPADD=II
+      GOTO 20
+      ENDIF
+      ENDDO
+      WRITE(7,*)'IFIP=',IFIP,' not in IFIPNM, stopping'
+      WRITE(*,*)'IFIP=',IFIP,' not in IFIPNM, stopping'
+      STOP777
+ 20   CONTINUE
+C Find index numbers to use for this SCC/Emistype
+      IDWKDEX=0
+      DO II=1,IWKMX
+      IF(IWKSV(II).EQ.IWK)THEN
+      IDWKDEX=II
+      ENDIF
+      ENDDO
+      IDDYDEX=0
+      DO II=1,IDYMX
+      IF(IDYSV(II).EQ.IDY)THEN
+      IDDYDEX=II
+      ENDIF
+      ENDDO
+      IMONDEX=0
+      DO II=1,IMNMX
+      IF(IMNSV(II).EQ.IMN)THEN
+      IMONDEX=II
+C 12/23/08 Agricultural burning of grasses, ground crops set to monthly temporal factor of Ag burning for all types (2801500000)
+C Otherwise, there is large summertime crop burning sources for grass, hay, etc.
+      IF(SCC(1:8).EQ.'28015001')IMONDEX=14
+C 12/23/08
+      ENDIF
+      ENDDO
+       IF(IMONDEX.EQ.0.OR.IDDYDEX.EQ.0.OR.IDWKDEX.EQ.0)THEN
+       WRITE(*,*)'TAF Index problem,SCC,POL,NAM=',SCC,POL,NAM
+       WRITE(*,*)'IMONDEX,IDDYDEX,IDWKDEX=',IMONDEX,IDDYDEX,IDWKDEX
+C      STOP777
+       ENDIF
+         IDWK(I,IFIPADD)=IDWKDEX
+         IDDY(I,IFIPADD)=IDDYDEX
+         IDMN(I,IFIPADD)=IMONDEX
+      WRITE(7,'(I5,1X,A10,1X,A,A,2I6,A,2I6,A,2I6,A,2I6,A)')
+     -I,SCCNUM(I),POL(1:LSPN),' week=(',IDWKDEX,IWKSV(IDWKDEX),') day=('
+     -,IDDYDEX,IDYSV(IDDYDEX),') month=(',IMONDEX,IMNSV(IMONDEX),'), IFI
+     -PADD,IFIPNM= (',IFIPADD,IFIPNM(IFIPADD),')'
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      ENDIF ! Endof IF(ISAV.EQ.0) or not IF,ELSE
+ 75   CONTINUE ! Endof I=1,ISCCMX loop
+      GOTO 9
+ 10   CONTINUE
+      CLOSE(8)
+C Check for SCCs without TAF assignment
+      DO I=1,ISCCMX
+      ITES=0
+      DO J=1,IFIPMX
+      IF(IDMN(I,J).NE.0)ITES=1
+      ENDDO
+      IF(ITES.EQ.0)THEN
+      WRITE(7,'(A,A10)')'Stop: No MNoYR TAF found for SCC= ',SCCNUM(I)
+      WRITE(*,'(A,A10)')'Stop: No MNoYR TAF found for SCC= ',SCCNUM(I)
+C     STOP777
+      IDMN(I,1)=262  ! Apply constant month of year profile if missing NEI-11 monthly TAF
+      ENDIF
+      ITES=0
+      DO J=1,IFIPMX
+      IF(IDWK(I,J).NE.0)ITES=1
+      ENDDO
+      IF(ITES.EQ.0)THEN
+      WRITE(7,'(A,A10)')'Stop: No dayoWK TAF found for SCC= ',SCCNUM(I)
+      WRITE(*,'(A,A10)')'Stop: No dayoWK TAF found for SCC= ',SCCNUM(I)
+C     STOP777
+      IDWK(I,1)=7  ! Apply constant day of week profile if missing NEI-11 week TAF
+      ENDIF
+      ITES=0
+      DO J=1,IFIPMX
+      IF(IDDY(I,J).NE.0)ITES=1
+      ENDDO
+      IF(ITES.EQ.0)THEN
+      WRITE(7,'(A,A10)')'Stop: No HRoDY TAF found for SCC= ',SCCNUM(I)
+      WRITE(*,'(A,A10)')'Stop: No HRoDY TAF found for SCC= ',SCCNUM(I)
+C     STOP777
+      IDDY(I,1)=24  ! Apply constant hour of day profile if missing NEI-11 week TAF
+      ENDIF
+      ENDDO
+      RETURN
+      END
+C *******************************************************************
+      SUBROUTINE RLPTNDX
+C This subroutine indexes each of the NRECMX records in the point emission file (nei99_v3_data.txt)
+C to a release point in the inventory. 2 files are generated here Relpointinfo.txt, Relpointidex.bin.
+C Relpointinfo.txt gives location, type, and 5 stack parameters for the IRLPMX distinct release points.
+C Relpointidex.bin is a binary file, first record (integer) gives the number of remaining records, and
+C following records (shoud be NRECMX of them) are index numbers pointing to line number of the
+C Relpointinfo.txt file of all points in nei99_v3_data.txt within the EPA 4x4km domain having emissions.
+C  Fugitive emissions are indexed to 4x4km horizontal grids,with lat, lons  output as grid centers in
+C Relpointinfo.txt. All other stack types (vertical, horizontal, gooseneck, raincap) maintain give lat lons.
+C Because the determination of distinct release points is a little time intensive, the data generated in
+C this routine (release point indexes NRPTRK(NRECMX) values) are saved, and a check is done to see if
+C the saved file exists.  If not - expect a about 10 min of processing to sort out the indexing.
+C 12/3/08 modified to make pointSCClist.txt file - needed in second pass of point4k.sub .
+      include 'commons/parame.h'
+      include 'commons/names.h'
+      include 'commons/pvars.h'
+      include 'commons/relpoin.h'
+      include 'commons/sccidex.h'
+      INTEGER IHTPRSV(IRLPMX),ITMPRSV(IRLPMX)
+      INTEGER IXLPRSV(IRLPMX),IYLPRSV(IRLPMX),ICOPRSV(IRLPMX)
+      DIMENSION XLTPRSV(IRLPMX),XLNPRSV(IRLPMX),FLWRPSV(IRLPMX)
+      INTEGER ISRPTYP(IRLPMX),IRTYPE(6) !counts records for each release emission type:
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      INTEGER IOSIRSV(ICEMMX),ICOCESV(ICEMMX)
+      CHARACTER*15 CSITESV(ICEMMX)
+      CHARACTER*6 CUNITSV(ICEMMX),CERPTSV(ICEMMX),CPROCSV(ICEMMX)
+C fugitive,stack,horizontal,goose-neck,capped,down-facing
+      CHARACTER*1 C1DUM
+      CHARACTER*6 C6DUM,COSIRB,CTE2,CTE3   ! COSIRB is Boilder ID for OSIR coding
+      CHARACTER*15 CTES
+      CHARACTER*80 CDUM
+      DATA IRELP/0/
+      DATA ICAPT,II/0,0/
+      DATA XMPERF/.3048/
+      LOGICAL EXISTS
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      INQUIRE(FILE='/wrk/csd4/clyu/relCEMS2105/Relpointidex.bin',
+     -EXIST=EXISTS)
+      IF(EXISTS)THEN
+      OPEN(10,FILE='/wrk/csd4/clyu/relCEMS2105/Relpointidex.bin',
+     -FORM='UNFORMATTED')
+      READ(10)INRPN
+        IF(INRPN.NE.NRECMX)THEN
+        WRITE(7,*)'RLPTNDX, input recnum= ',INRPN,' not= NRECMX'
+        STOP888
+        ENDIF
+      READ(10)NRPTRK
+      CLOSE(10)
+C     OPEN(10,FILE='NRPTRK.txt')
+C     DO I=1,INRPN
+C     WRITE(10,*)I,NRPTRK(I)
+C     CALL FLUSH(10)
+C     ENDDO
+C     CLOSE(10)
+      OPEN(10,FILE='/wrk/csd4/clyu/relCEMS2105/Relpointinfo_4BMcD.txt')
+      DO I=1,IRLPMX
+      READ(10,55)ISTATE,ICCCN,SITEID,ERPTID,UNITID,PROCID,IRTYP,STKHGT,
+     -STKDIAM,STKTMP,STKVEL,STKFLOW,XLON,XLAT,FUGHT,IOSIR,COSIRB
+ 55   FORMAT(I2.2,I3.3,A15,3A8,1X,I2,1X,F10.3,F10.3,F10.2,F10.3,F10.4
+     -,F11.5,F10.5,F10.3,I7,1X,A)
+      COURELP(I)=ISTATE*1000+ICCCN
+      XLTRELP(I)=XLAT
+      XLNRELP(I)=XLON
+      ENDDO
+      CLOSE(10)
+      WRITE(*,*)' release point index file read in RLPTNDX, all OK'
+      WRITE(7,*)' release point index file read in RLPTNDX, all OK'
+      RETURN
+      ENDIF
+C If you made it here, release point indexing files don't exist
+      WRITE(*,*)'No release pnt index file found in RLPTNDX, writing it'
+      WRITE(7,*)'No release pnt index file found in RLPTNDX, writing it'
+      STOP'777'
+      RETURN
+      END
+C *******************************************************************
+      SUBROUTINE VOCPRFC
+      include 'commons/parame.h'
+      include 'commons/sccidex.h'
+      include 'commons/vocidex.h'
+      include 'commons/names.h'
+      include 'commons/tafidex.h'
+C===============================================================================
+C
+C  This program  converts Speciate 5.0 VOC profile assignments to SAPRAC11 lumped
+C  species assignments plus any other species separated out.
+C  Matrices  PRFLUMP (matrix assignment of Lumped SAPRAC99 species to speciation code number)
+C and ISCCVOC (Profile number in NPRFSV assigned to input SCC codes) are the elements
+C needed in subroutine VOCSPEC to accumulate VOC emissions into gridded fields
+C The units of speciation file PRFLUMP are in moles per kilogram of VOC emitted.
+C===============================================================================
+      CHARACTER*80 INDRVOC
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C     DIMENSION INUMONR(NEMTYPE),IPRFOUT(NEMTYPE)
+      CHARACTER*10 CNUM,CDUM,CDUMPNM,CPRFSV,CNUMONR,CPRFOUT
+      CHARACTER*9 CDUMSPC
+      CHARACTER*6 OGPRF(26),CIFIPN  ! 6/28/19 updated 22 OnG basin specific profiles to speciate 4.5 + 4 extra text profiles
+      DIMENSION CPRFSV(IVOCPMX)
+C     SAPRC07T (toxics) Lumped Species Variables in TOGspec_2_SAPRACspec.txt file 8/21/08
+C     DATA INDRVOC/'/home/stu/emis/em11/vocspec/'/
+C     DATA INDRVOC/'/home/stu/emis/em14/vocspec/'/
+      DATA INDRVOC/'/home/stu/emis/em17/vocspec/'/
+C Gas composition analysis profiles are an averaged profiles from data provided by producers
+C(01) DJFLA - DJ Basin Flashing Gas Composition for Condensate
+C(02) DJVNT - DJ Basin Produced Gas Composition
+C(03) FLR70 - ?? Basin ??
+C(04) FLR88 - ?? Basin ??
+C(05) FLR97 - ?? Basin ??
+C(06) FLR99 - ?? Basin ??
+C(07) PNC01 - Piceance Basin Gas Composition at Conventional Wells
+C(08) PNC02 - Piceance Basin Gas Composition at Oil Wells
+C(09) PNC03 - Piceance Basin Flashing Gas Composition for Condensate
+C(10) PNCDH - Piceance Basin ??
+C(11) PRBCB - Powder River Basin Produced Gas Composition for CBM Wells
+C(12) PRBCO - Powder River Basin Produced Gas Composition for Conventional Wells
+C(13) PRM01 - Permian Basin Produced Gas Composition
+C(14) SSJCB - South San Juan Basin Produced Gas Composition for CBM Wells
+C(15) SSJCO - South San Juan Basin Produced Gas Composition for Conventional Wells
+C(16) SWFLA - SW Wyoming Basin Flash Gas Composition
+C(17) SWVNT - SW Wyoming Basin Vented Gas Composition
+C(18) UNT01 - Uinta Basin Gas Composition at CBM Wells
+C(19) UNT02 - Uinta Basin Gas Composition at Conventional Wells
+C(20) UNT03 - Uinta Basin Flashing Gas Composition for Oil
+C(21) UNT04 - Uinta Basin Flashing Gas Composition for Condensate
+C(22) WRBCO - Wind River Basin Produced Gas Composition for Conventional Wells
+C(23) 8750a - Text profile converted to number 9023 6/28/19
+C(24) 8751a - Text profile converted to number 9024 6/28/19
+C(25) 95087a - Text profile converted to number 9025 6/28/19
+C(26) 95109a - Text profile converted to number 9026 6/28/19
+C (CSC note: 2487 used for oil SCCs in basins without an oil-specific profile.)
+      DATA OGPRF/'DJFLA','DJVNT','FLR70','FLR88','FLR97','FLR99','PNC01'
+     -,'PNC02','PNC03','PNCDH','PRBCB','PRBCO','PRM01','SSJCB','SSJCO',
+     -'SWFLA','SWVNT','UNT01','UNT02','UNT03','UNT04','WRBCO','8750a',
+     -'8751a','95087a','95109a'/
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      SAVE
+      WRITE(*,*)'Processing NEI-2011 VOC profiles, SPECIES= ',NAM
+      WRITE(7,*)'Processing NEI-2011 VOC profiles, SPECIES= ',NAM
+      PRFLUMP=0.
+      ISCCVOC=-999
+      LBET=LNBLNK(INDRVOC)
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'saprc99_VOCprflassign.txt')
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'OnG_saprc99_VOCprflassign.txt')
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'OnG_sprc11_VOCprfls_XTRA.txt')
+      OPEN(5,FILE=INDRVOC(1:LBET)//'SPECT5p0_VOCprfls.txt')
+      REWIND(5)
+      DO I=1,IVOCPMX
+      READ(5,'(A,1X,I2)')CPRFSV(I),JNUM
+      WRITE(*,*)I,CPRFSV(I),JNUM
+      CALL FLUSH(6)
+      DO J=1,JNUM
+      READ(5,'(I2,1X,A10,1X,E10.3)')INUM,CDUM,DUM
+      PRFLUMP(INUM,I)=DUM
+      ENDDO
+      ENDDO
+      CLOSE(5)
+C 10/30/08 Do original way for on/non road - Speciate4.3 SCC to VOC profile assignments only
+C gives top 80%, or about 148 entries.  They all have the same value for on/non road categories.
+C This differs from SMOKE files on EPA web-site designed for nei2002.  But the EPA SMOKE files
+C only have about 140 SCC to VOC profile entries as well.  Go for Speciate4.0 as primary
+C info for gas, and diesel vehicles - Onroad in particular.  
+C     INDRVOC='/home/stu/emis/em05/EPAdata/'
+C     INDRVOC='/wrk/d1/stu/d1/nei2005/EPAdata/ptinv/ancillary/cap/'
+C     INDRVOC='/wrk/d1/stu/nei11/EPAdata/v1platform/ge_dat/'
+C     INDRVOC='/wrk/d2/stu/nei14/EPAdata/ge_dat/speciation/'
+      INDRVOC='/home/stu/emis/em17/EPAdata/'
+      LBET=LNBLNK(INDRVOC)
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gsref.SMOKE.cb4p25_wtox.txt')
+C 12/9/08 try the gsref file that came with 2002 NEI download - the SMOKE file missed hundreds
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gsref_2002_cb05_cap4_11dec2007_v3.tx
+C    -t')
+C 11/12/13 try the gsref file that came with NEI11-v1 v1platform ge_dat download
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gsref_cmaq_cb05_soa_2011ec_v6_11f_on
+C    -road_06sep2013.txt')
+C 6/28/19 try the gsref file that came with NEI4v2
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gsref_cmaq_cb6_2014fa_nata_cb6cmaq_1
+C    -4j.txt')
+      OPEN(5,FILE=INDRVOC(1:LBET)//'gsref_ag_cmaq_cb6ae7_2017gb_17j_nf.t
+     -xt')
+      REWIND(5)
+C     DO I=1,46
+C     DO I=1,319
+C     DO I=1,296
+      DO I=1,194
+      READ(5,*)
+      ENDDO
+      JJ=0
+      II=0        ! Keep track of profiles found
+ 19   CONTINUE
+      IFIPN=0
+C     READ(5,'(A10,1X,A5,2X,A8)',END=18)CDUM,CDUMPNM,CDUMSPC
+C     READ(5,*,END=18)CDUM,CDUMPNM,CDUMSPC,IFIPN
+      READ(5,*,END=18)CDUM,CDUMPNM,CDUMSPC,CIFIPN
+      IPRN0=0
+      IF(CDUM(1:8).EQ.'30117612'.OR.CDUM(1:10).EQ.'0030117612')IPRN0=1
+      IF(CDUM(1:8).EQ.'30700664'.OR.CDUM(1:10).EQ.'0030700664')IPRN0=1
+      IF(CDUM(1:10).EQ.'2275050011')IPRN0=1
+      IF(CDUM(1:10).EQ.'2275050012')IPRN0=1
+      IF(CDUM(1:10).EQ.'2275060012')IPRN0=1
+      IF(CDUMPNM(1:5).EQ.'HGCMB')GOTO 19
+      IF(IPRN0.EQ.1)THEN
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(7,'(A,4(1X,A))')'Tes2,CDUM,CDUMPNM=',CDUM,CDUMPNM,CDUMSPC,
+     -CIFIPN
+      ENDIF
+C 6/29/19 Ignore Canada/Mexico IFIPS
+      IF(IFIPN.GE.100000)GOTO 19
+      JJ=JJ+1
+      LDUM=LNBLNK(CDUM)
+      LDUMPNM=LNBLNK(CDUMPNM)
+      LDUMSPC=LNBLNK(CDUMSPC)
+      LDST=MAX(1,LDUMSPC-2)
+      INUMONR=-999
+      IF(CDUMSPC(1:3).EQ.'VOC'.OR.CDUMSPC(1:9).EQ.'NONHAPVOC')THEN
+C     IF(CDUMSPC(1:3).EQ.'VOC')THEN
+C     IF(CDUMSPC(1:9).EQ.'NONHAPVOC')THEN
+C     IF(CDUMSPC(1:3).EQ.'VOC'.AND.IFIPN.EQ.0)THEN  ! Ignore county specific stuff for now, 11/14/13
+      DO 20 I=1,ISCCMX
+C     IF(SCCNUM(I).EQ.CDUM(1:LDUM))THEN
+      IF((SCCNUM(I).EQ.CDUM(1:LDUM)).OR.('00'//SCCNUM(I).EQ.CDUM(1:LDUM)
+     -))THEN
+      WRITE(7,'(A,A,A,1X,A)')SCCNUM(I),' VOCprfnum,Spc_lbl= ',CDUMPNM,
+     -CDUMSPC
+C      IF(CDUM(1:3).EQ.'220')THEN  ! It's a gas onroad vehicle
+C 5/22/08 depending on ITYP (1=Exhaust,2=Evap,3=Tire,4=Brake,5=Refill,6=All(VOC) )
+C Default Gas profiles, Evaporation and refueling VOC profiles are the same
+C      INUMONR=1314  ! 1313 is exhaust Industry average circa 1990, profile 1314 is 10% ethanol mix (Speciate4.0 recommend)
+C      GOTO 21
+C      ELSE
+C     READ(CDUMPNM,'(I)',ERR=177)JPROF
+C     IF(JPROF.EQ.8869)JPROF=1305 !2011 Fixed Roof Tank - Commercial Jet Fuel - use NEI-2005 assign 11/14/13
+      IF(CDUMPNM(1:5).EQ.'5565B')THEN  ! Ignore COMBO files 
+      CNUMONR='5565'  ! Landing/Takeoffs
+      WRITE(7,'(A,A,1X,A,1X,A)')SCCNUM(I),' VOCprfnum,Spc_lb5= ',CNUMONR,
+     -CDUMSPC
+      CALL FLUSH(7)
+      GOTO 21
+      ENDIF
+      IF(trim(CDUMPNM).EQ.'000')CDUMPNM='0000'
+      IF(CDUM(1:8).EQ.'40200911'.AND.CDUMPNM(1:5).EQ.'COMBO')THEN  ! Ignore COMBO files 
+      CNUMONR='8737'  ! Use OTAQ NEI-2005 Composite Profile - Non-xygenated Gasoline Headspace Vapor
+      WRITE(7,'(A,A,1X,A,1X,A)')SCCNUM(I),' VOCprfnum,Spc_lb4= ',CNUMONR
+     -,CDUMSPC
+      CALL FLUSH(7)
+      GOTO 21
+      ENDIF
+      IF(CDUM(1:3).EQ.'404'.AND.CDUMPNM(1:5).EQ.'COMBO')THEN  ! Ignore COMBO files in storage tanks
+      CNUMONR='8869'  ! Use same as for other Gas Terminals, no Read Vapor Pressure (RVP) dependence
+      WRITE(7,'(A,A,1X,A,1X,A)')SCCNUM(I),' VOCprfnum,Spc_lb6=',CNUMONR,
+     -CDUMSPC
+      CALL FLUSH(7)
+      GOTO 21
+      ENDIF
+      IF(CDUM(1:3).EQ.'406'.AND.CDUMPNM(1:5).EQ.'COMBO')THEN  ! Ignore COMBO files in storage tanks
+      CNUMONR='0297'  ! Use same as for other Gas Terminals, no Read Vapor Pressure (RVP) dependence
+      WRITE(7,'(A,A,1X,A,1X,A)')SCCNUM(I),' VOCprfnum,Spc_lb7=',CNUMONR,
+     -CDUMSPC
+      CALL FLUSH(7)
+      GOTO 21
+      ENDIF
+      CNUMONR=CDUMPNM
+      GOTO 21
+ 177  CONTINUE
+C Oil and Gas new SCCs have non-numeric text in profile assignments
+C      DO J=1,26
+CC     IF(CDUMPNM(1:5).EQ.OGPRF(J))THEN
+C      IF(CDUMPNM.EQ.OGPRF(J))THEN
+C      INUMONR=9000+J
+C      WRITE(7,'(A,A,I5,1X,2A)')SCCNUM(I),' OnG VOCprfnum,Spc_lbl= ',
+C     -INUMONR,CDUMSPC,CDUMPNM
+C      CALL FLUSH(7)
+C      GOTO 21
+C      ENDIF
+C      ENDDO
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      IF((CDUM(1:4).EQ.'2501'.OR.CDUM(1:4).EQ.'2505'.OR.CDUM(1:4).EQ.'26
+     -60'.OR.CDUM(1:4).EQ.'2635').AND.CDUMPNM(1:5).EQ.'COMBO')THEN  ! Ignore COMBO files for gas-can/transport SCCs - used old NEI05 assignment
+      INUMONR='1305'
+      WRITE(7,'(A,A,I5,1X,A)')SCCNUM(I),' VOCprfnum,Spc_lb2= ',CNUMONR,
+     -CDUMSPC
+      CALL FLUSH(7)
+      GOTO 21
+      ENDIF
+      IF(CDUM(1:8).EQ.'39901701'.AND.CDUMPNM(1:5).EQ.'COMBO')THEN  ! Ignore COMBO files for new gas furnace industrial process
+      CNUMONR='0004'  ! Use 39990014 External Combustion Boiler - Refinery Gas Profile
+      WRITE(7,'(A,A,I5,1X,A)')SCCNUM(I),' VOCprfnum,Spc_lb3= ',CNUMONR,
+     -CDUMSPC
+      CALL FLUSH(7)
+      GOTO 21
+      ENDIF
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(7,*)'Bad VOCprf name,JJ,SCC,IFIP=',CDUMPNM,JJ,CDUM(1:LDUM),
+     -IFIPN
+      WRITE(*,*)'Bad VOCprf name,JJ,SCC,IFIP=',CDUMPNM,JJ,CDUM(1:LDUM),
+     -IFIPN
+      STOP'777'
+ 21   CONTINUE
+      CNUM=CNUMONR
+C     IF(INUM.EQ.-999)GOTO 23
+      IF(trim(CNUM).EQ.'-999')THEN
+C 11/19/13 - Punt, no available VOC profile, includes mainly agriculture, fertilizer - which have 0 profile for similar classes.
+      WRITE(7,'(2A)')SCCNUM(I),' No assign, Fill to VOCprof 0 '
+      CNUM=''
+      ENDIF
+      II=II+1     ! Keep track of profiles found
+      DO 23 J=1,IVOCPMX
+      IF(trim(CNUM).EQ.trim(CPRFSV(J)))THEN
+      IF(ISCCVOC(I,1).LT.0)THEN  ! Index 1 is entire US for IFIPNM
+      DO JJ=1,IFIPMX
+      ISCCVOC(I,JJ)=J
+      ENDDO
+      ELSE ! Below means ISCCVOC(I,1).GE.0
+      IF(IFIPN.NE.0)THEN
+C Check to make sure IFIP is valid (within IFIPNM)
+      DO JJ=1,IFIPMX
+      IF(IFIPN.EQ.IFIPNM(JJ))THEN
+      IFIPADD=JJ
+      GOTO 29
+      ENDIF
+      ENDDO
+      WRITE(7,*)'IFIPN=',IFIPN,' not in IFIPNM VOCPRFC, stopping'
+      WRITE(*,*)'IFIPN=',IFIPN,' not in IFIPNM VOCPRFC, stopping'
+      DO II=1,IFIPMX
+      WRITE(7,*)'II,IFIPNM=',II,IFIPNM(II)
+      ENDDO
+      CALL FLUSH(7)
+      STOP777
+ 29   CONTINUE
+      ISCCVOC(I,JJ)=J
+      GOTO 19
+      ENDIF ! ENDofIF(IFIPN.NE.0)THEN
+C     WRITE(7,*)' Duplct Prfl assgn,SCC,prf= ',SCCNUM(I),NPRFSV(J)
+C     WRITE(*,*)' Duplct Prfl assgn,SCC,prf= ',SCCNUM(I),NPRFSV(J)
+C     STOP777
+      ENDIF  ! ENDofIF(ISCCVOC(I,1).LT.0)THEN/ELSE  ! Index 1 is entire US for IFIPNM
+      WRITE(7,'(A10,A,I5)')SCCNUM(I),' VOCprofnum=',J
+      GOTO 24
+      ENDIF  !ENDofIF(CNUM.EQ.CPRFSV(J))THEN
+ 23   CONTINUE
+      WRITE(*,'(A,A10,1X,A)')'No SCCprfassign match to SCC,INUM= ',
+     -SCCNUM(I),CNUM
+      WRITE(7,'(A,A10,1X,A)')'No SCCprfassign match to SCC,INUM= ',
+     -SCCNUM(I),CNUM
+      STOP'777'
+ 24   CONTINUE
+      GOTO 19
+      ENDIF  ! End of (SCCNUM(I).EQ.CDUM(1:LDUM)) test
+ 20   CONTINUE
+      GOTO 19
+      ENDIF ! End of IF(CDUMSPC(1:3).EQ.'VOC'.OR.CDUMSPC(1:9).EQ.'NONHAPVOC') Test
+      GOTO 19
+ 18   CONTINUE
+      WRITE(7,*)JJ,' VOCPRFC Total Profl recs,',II,' total assigns'
+      WRITE(*,*)JJ,' VOCPRFC Total Profl recs,',II,' total assigns'
+      ITRAK=0
+      DO I=1,ISCCMX
+      II=0     ! Keep track of profiles found
+      CPRFOUT='-999'
+      J=ISCCVOC(I,1)
+      IF(J.NE.-999)THEN
+      II=II+1  ! Keep track of profiles found
+      CPRFOUT=CPRFSV(J)
+      ENDIF
+      IF(II.EQ.0)ITRAK=ITRAK+1
+      WRITE(7,*)I,SCCNUM(I),CPRFOUT
+      ENDDO
+      IF(ITRAK.GT.0)THEN
+      WRITE(*,*)ITRAK,' Missing VOC profile assignments, not stopping'
+      WRITE(7,*)ITRAK,' Missing VOC profile assignments, not stopping'
+C     STOP777
+      ENDIF
+      WRITE(*,*)'VOC SCC to profile assign done '
+      WRITE(7,*)'VOC SCC to profile assign done '
+C     ISTOP=1
+C     IF(ISTOP.EQ.1)STOP999
+      RETURN
+      END
+
+C *******************************************************************
+      SUBROUTINE VOCSPEC(ISC,IFIP,II,ELEMADD,IHRDIF,ICEMSW)
+C ICEMSW= 0 , use SCC and EPA factors from SCC2TAF routine, ELEMADD (ton/dy) is weekly average
+C ICEMSW= -1 , ELEMADD is daily average (predetermined) use SCC and EPA hourly factors from SCC2TAF
+C ICEMSW= +1 , ELEMADD is daily avrg (predetermined), use hourly factors supplied in CEMHRFAC(24) vector
+      include 'commons/parame.h'
+      PARAMETER(IHCRECL=4*IVOC*24)
+      PARAMETER(IBADMX=5)
+      include 'commons/sccidex.h'
+      include 'commons/vocidex.h'
+      include 'commons/tafidex.h'
+      include 'commons/timvari.h'
+      include 'commons/names.h'
+      include 'commons/latlonlm.h'
+C===============================================================================
+      DIMENSION SCRAT(IRLPMX),A(24,IVOC)
+C Units of VOC emissions (VOCEM) are moles per (4km) grid square per hour
+      CHARACTER*10 SCCBADSV(IBADMX)
+      INTEGER STATUS,SYSTEM
+      CHARACTER*4 HCFILNM,HRNAM
+      CHARACTER*12 OUDIRF
+      CHARACTER*20 FIL
+      LOGICAL EXISTS
+      DATA ITIMS,ISAV/0,0/
+      DATA KGPERTON/907.18/
+      SAVE
+      ITIMS=ITIMS+1
+      IF(ITIMS.EQ.1)THEN
+      IF(ITIMVAR.EQ.1)THEN
+      INQUIRE(FILE='tmpdira',EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'tmpdira directory  DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir tmpdira')
+      ELSE  ! erase anything in tmpdira
+      WRITE(*,*)'tmpdira directory  EXISTS, erasing VOC file'
+      STATUS=SYSTEM('rm -rf tmpdira/HCtv')
+      ENDIF
+      DO ISP=1,VOC
+      DO I=1,24
+      A(I,ISP)=0.
+      ENDDO
+      ENDDO
+      WRITE(HCFILNM,'(A4)')'HCtv'
+      OUDIRF='tmpdira/'//HCFILNM
+      IUN=11
+      OPEN(UNIT=IUN,FILE=OUDIRF,ACCESS='DIRECT',RECL=IHCRECL,
+     -FORM='UNFORMATTED')
+      N0=0
+      DO 2 I=1,IRLPMX
+      N0=N0+1
+      WRITE(IUN,REC=N0)A
+ 2    CONTINUE
+      WRITE(*,16)OUDIRF,IUN,N0
+ 16   FORMAT('WRITTEN TO ',A12,' UNIT=',I2,' N=',I7)
+      DO IHR=1,24
+      WRITE(HRNAM,'(A2,I2.2)')'HR',IHR
+      INQUIRE(FILE=HRNAM,EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'Hour directory ',HRNAM,'  DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir '//HRNAM)
+      ENDIF
+      ENDDO
+      INQUIRE(FILE='dayav',EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'dayav directory DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir dayav')
+      ENDIF
+      ENDIF   !IF(ITIMVAR=1)
+      ELSEIF(ISC.LT.0)THEN
+C
+      IF(ITIMVAR.EQ.1)THEN
+      WRITE(7,*)' WRITING ',IVOC,' VOC hourly variation file'
+      CALL FLUSH(7)
+      CLOSE(8)
+      IUN=11
+      DO ISP=1,IVOC
+      WRITE(HCFILNM,'(A2,I2.2)')'HC',ISP
+C Modify for putting hourly 2-D emission files in subdirectories HR01,HR02,HR03...
+      DO 15 IHR=1,24
+      WRITE(HRNAM,'(A2,I2.2)')'HR',IHR
+      FIL=HRNAM//'/'//HCFILNM
+      OPEN(8,FILE=FIL,FORM='FORMATTED')
+      EMAX=-1.E30
+      ETOT=0.
+      DO I=1,IRLPMX
+      READ(IUN,REC=I)A
+      SCRAT(I)=A(IHR,ISP)
+      SCRAT(I)=0.
+      DO J=1,24
+      SCRAT(I)=SCRAT(I)+A(J,ISP)/24.
+      ENDDO
+      ETOT=ETOT+SCRAT(I)
+      IF(SCRAT(I).GT.EMAX)THEN
+      EMAX=SCRAT(I)
+      IMAX=I
+      ENDIF
+      ENDDO
+C     WRITE(7,*)ISP,' ',NAMVOC(ISP),' Tot,MxEm,I= ',ETOT,EMAX,IMAX
+C     WRITE(8)SCRAT
+      WRITE(8,'(1P12E9.2)')SCRAT
+      CLOSE(8)
+      LLET3=LNBLNK(FIL)
+      STATUS=SYSTEM('gzip -f '//FIL(1:LLET3)//'&')
+      WRITE(7,'(A,I2,1X,A,A,1P,2E11.4,2I)')'Hr ',IHR-1,NAMVOC(ISP),
+     -' Totl,Max,I,J= ',ETOT,EMAX,IMAX,JMAX
+15    CONTINUE
+      WRITE(*,'(A,A)')'24hr write= ',NAMVOC(ISP)
+      WRITE(7,'(A,A)')'24hr write= ',NAMVOC(ISP)
+      FIL='dayav/'//HCFILNM
+      LLET3=LNBLNK(FIL)
+      OPEN(8,FILE=FIL,FORM='FORMATTED')
+C Refill SCRAT with daily average from hourly temp files, units of short ton per day per 4km grid
+      SCRAT=0.
+      DO IHR=1,24
+      IN=0
+      DO 8 I=1,IRLPMX
+      IN=IN+1
+      READ(IUN,REC=IN)A
+      SCRAT(I)=SCRAT(I)+A(IHR,ISP)
+8     CONTINUE
+      ENDDO
+      EMAX=-1.E30
+      ETOT=0.
+      DO I=1,IRLPMX
+      ETOT=ETOT+SCRAT(I)
+      IF(SCRAT(I).GT.EMAX)THEN
+      EMAX=SCRAT(I)
+      IMAX=I
+      ENDIF
+      ENDDO
+      WRITE(8,'(1P12E9.2)')SCRAT
+      CLOSE(8)
+      STATUS=SYSTEM('gzip -f '//FIL(1:LLET3)//'&')
+      WRITE(7,'(2A,1P2E10.3,I)')NAMVOC(ISP),
+     -' Diurn Totl(ton/dy),Max,I=',ETOT,EMAX,IMAX
+      WRITE(*,'(2A,1P2E10.3,I)')NAMVOC(ISP),
+     -' Diurn Totl(ton/dy),Max,I=',ETOT,EMAX,IMAX
+      ENDDO   !ISP=1,IVOC
+      ENDIF   !IF ITIMVAR=1
+      CLOSE(IUN)
+      RETURN
+      ENDIF
+      IF(ISCCVOC(ISC,IFIP).EQ.-999)THEN
+      IF(ISAV.EQ.0)THEN
+      ISAV=1
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      WRITE(7,'(A,A10,I5)')'No VOC assign to SCC=',SCCNUM(ISC)
+      GOTO 3
+      ELSE
+      DO I=1,ISAV
+      IF(SCCNUM(ISC).EQ.SCCBADSV(I))GOTO 3
+      ENDDO
+      ISAV=ISAV+1
+      IF(ISAV.GT.IBADMX)THEN
+      WRITE(*,*)'Bad SCCs-no VOC profile > ',IBADMX,' stopping'
+      WRITE(7,*)'Bad SCCs-no VOC profile > ',IBADMX,' stopping'
+      STOP777
+      ENDIF
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      ENDIF
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      WRITE(7,'(A,A10,I5)')'No VOC assign to SCC=',SCCNUM(ISC)
+      ELSE
+C Everything OK for updating VOCEM matrices, VOCEM in mole per hr per (4km) grid
+      IPRF=ISCCVOC(ISC,IFIP)
+      FAC=ELEMADD*KGPERTON/24.
+      IUN=11
+      READ(IUN,REC=II)A
+      DO I=1,IVOC
+      IF(PRFLUMP(I,IPRF).GT.0.)THEN
+      ELEMVOC=PRFLUMP(I,IPRF)*FAC
+C     VOCEM(I,II)=VOCEM(I,II)+ELEMVOC
+      VOCEM(ISC,I)=VOCEM(ISC,I)+ELEMVOC
+C Save hourly emissions if ITIMVAR=1
+      IF(ITIMVAR.EQ.1)THEN
+      IF(ICEMSW.LE.0)THEN
+      IWKDX=IDWK(ISC,IFIP)
+      IDYDX=IDDY(ISC,IFIP)
+      IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      IF(ISAV.EQ.0)THEN
+      ISAV=1
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      WRITE(7,'(A,A10)')'No taff assign to SCC= ',SCCNUM(ISC)
+      GOTO 3
+      ELSE
+      DO K=1,ISAV
+      IF(SCCNUM(ISC).EQ.SCCBADSV(K))GOTO 3
+      ENDDO
+      ISAV=ISAV+1
+      IF(ISAV.GT.IBADMX)THEN
+      WRITE(*,*)'Bad SCCs-no July temp profile > ',IBADMX,' stopping'
+      STOP777
+      ENDIF
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      ENDIF
+      WRITE(7,'(A,A10)')'No July_taff assign to SCC= ',SCCNUM(ISC)
+C Only found 1 SCC=2801500000 in area files that has July TAFF=0, but want
+C to keep OSD numbers even though TAFF assign to annual is zero, change ELSE
+C to endif to continue
+      ENDIF   !IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      ENDIF   !IF(ICEMSW.LE.0)THEN
+C VOC Emission ELEMVOC is in mole/hr per 4 km grid square for SSD (summer season day)
+      FACDY=1.
+      IF(ICEMSW.EQ.0)THEN
+      IF(IDYoWK.EQ.1)THEN   !Weekday (M-F) emission
+      FACDY=(FSCWK(IWKDX,1)+FSCWK(IWKDX,2)+FSCWK(IWKDX,3)+FSCWK(IWKDX,4)
+     -+FSCWK(IWKDX,5))*7./5.
+      ELSEIF(IDYoWK.EQ.2)THEN   !Saturday emission
+      FACDY=FSCWK(IWKDX,6)*7.
+      ELSEIF(IDYoWK.EQ.3)THEN   !Sunday emission
+      FACDY=FSCWK(IWKDX,7)*7.
+      ENDIF
+      ENDIF  ! Endof ICEMSW=0 test
+      DO IHR=1,24
+C IHRPLAC= 1 for UTC00-UTC01, =2 for UTC01-UTC02,...etc.
+      IHRPLAC=1+MOD(IHR-1+IHRDIF,24)
+      IF(ICEMSW.LE.0)THEN
+      A(IHRPLAC,I)=A(IHRPLAC,I)+ELEMVOC*FACDY*FSCDY(IDYDX,IHR)*24.
+      ELSE ! This is a CEMS record with CEMS hourly factors in CEMHRFAC
+      A(IHRPLAC,I)=A(IHRPLAC,I)+ELEMVOC*CEMHRFAC(IHR)*24.
+      ENDIF
+      ENDDO
+C Hourly VOC emission files - units in moles/hr per 4km grid square
+      ENDIF   !IF ITIMVAR=1
+      ENDIF   !IF (PRFLUMP(I,IPRF).GT.0.)
+      ENDDO   !I=1,IVOC
+      WRITE(IUN,REC=II)A
+      ENDIF
+ 3    CONTINUE
+      RETURN
+      END
+      SUBROUTINE PM2PRFC
+      include 'commons/parame.h'
+      include 'commons/sccidex.h'
+      include 'commons/pm2idex.h'
+      include 'commons/names.h'
+C     include 'commons/tafidex.h'
+C===============================================================================
+C
+C  This program  converts PM2.5 profile assignments to SAPRAC99 lumped
+C  species assignments plus any other species separated out.
+C 2/26/14, Using gspro and gsref files from v1platform that came with NEI-2011
+C 2/26/14, rather than Speciate 4.3.
+C  Matrices  PRFLPM2 (matrix assignment of EPA PM2.5 species to speciation code number)
+C and ISCCPM2 (Profile number in NPRFSV assigned to input SCC codes) are the elements
+C needed in subroutine PM2SPEC to accumulate PM25 emissions into gridded fields
+C The units of speciation file PRFLPM2 are in fractions of mass assigned to each PM2.5 species
+C===============================================================================
+      CHARACTER*80 INDRVOC
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      DIMENSION CPRFSV(IPM2PMX)
+C     DIMENSION INUMONR(NEMTYPE),IPRFOUT(NEMTYPE)
+      CHARACTER*9 CHARP
+      CHARACTER*10 CNUM,CNUMONR
+      CHARACTER*10 CDUM,SPNDUM,CPRFSV,CPRFO,CDUMPNM,CDUMSPC
+      CHARACTER*1 CHAR1
+C     SAPRC07T (toxics) Lumped Species Variables in TOGspec_2_SAPRACspec.txt file 8/21/08
+C     DATA INDRVOC/'/wrk/d1/stu/nei11/EPAdata/v1platform/ge_dat/'/
+C     DATA INDRVOC/'/wrk/d2/stu/nei14/EPAdata/ge_dat/speciation/'/
+      DATA INDRVOC/'/home/stu/emis/em17/EPAdata/'/
+      SAVE
+      WRITE(*,*)'Processing NEI-2017 PM25 profiles'
+      WRITE(7,*)'Processing NEI-2017 PM25 profiles'
+      PRFLPM2=0.
+      ISCCPM2=-999
+      LBET=LNBLNK(INDRVOC)
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gspro_cmaq_cb05_soa_2011ec_v6_11f_be
+C    -is_nf.txt')
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gspro_cmaq_cb6_2014fa_nata_cb6cmaq_1
+C    -4j_criteria.txt')
+      OPEN(5,FILE=INDRVOC(1:LBET)//'gspro_cmv_c1c2_12_cmaq_cb6ae7_2017gb
+     -_17j_01may2020.txt')
+      REWIND(5)
+C Determine number of header lines, rewind file, read to first line of data
+      IHEAD=0
+ 98   CONTINUE
+      READ(5,'(1A)')CHAR1
+      IF(CHAR1.NE.'#')GOTO 99
+      IHEAD=IHEAD+1
+      GOTO 98
+ 99   CONTINUE
+      IHEAD=IHEAD+1
+      REWIND(5)
+      WRITE(7,*)'PM2PRFC IHEAD= ',IHEAD
+      CALL FLUSH(7)
+      DO I=1,IHEAD
+      READ(5,'(1X)')
+      ENDDO
+C You are now at beginning of first line.
+      CPRFO=''
+      I=0
+ 9    CONTINUE
+      READ(5,*,END=10,ERR=11)CDUM,CDUMSPC,SPNDUM,FRC
+C     WRITE(7,*)CDUM,CDUMSPC,SPNDUM,FRC
+C     WRITE(*,*)CDUM,CDUMSPC,SPNDUM,FRC
+C     CALL FLUSH(7)
+C     CALL FLUSH(6)
+      IF(CDUMSPC(1:5).EQ.'PM2_5')THEN
+C     IF(len_trim(CDUM).LT.5)GOTO 9 ! For area files all SCCs have profiles with 5 or more characters
+C     READ(CDUM,'(I)',ERR=9)NPRFDUM
+      IF(trim(CDUM).NE.trim(CPRFO))THEN
+      I=I+1
+      CPRFSV(I)=CDUM
+C     WRITE(7,*)'PM25 prof,I,N=',I,CDUM
+C     WRITE(*,*)'PM25 prof,I,N=',I,CDUM
+C     CALL FLUSH(7)
+C     CALL FLUSH(6)
+      CPRFO=CDUM
+      ENDIF
+      L=LNBLNK(SPNDUM)
+      DO II=1,IPM25
+      CHARP=NAMPM2(II)
+      LP=LNBLNK(CHARP)
+      IF(SPNDUM(1:L).EQ.CHARP(1:LP))PRFLPM2(II,I)=FRC
+      ENDDO
+      ENDIF  ! end of IF(CDUMSPC(1:5).EQ.'PM2_5')
+      GOTO 9
+ 11   WRITE(7,*)'Error reading file in PM2PRFC, stopping'
+      STOP'777'
+ 10   CONTINUE
+      CLOSE(5)
+      WRITE(7,*)'PM2.5 profile assign done, ',I,' profiles found'
+      DO II=1,I
+C 9/29/20 Newer PM2.5 profiles have PM_FINE fraction = 0, put this fraction
+      PRFLPM2(1,II)=0. ! PM_FINE CALC
+      DO III=7,IPM25 ! PM_FINE CALC
+      PRFLPM2(1,II)=PRFLPM2(1,II)+PRFLPM2(III,II) ! PM_FINE CALC
+      ENDDO  ! PM_FINE CALC
+      WRITE(7,'(I4,1X,A,1P,20E9.2)')II,CPRFSV(II),(PRFLPM2(J,II),J=1,IPM
+     -25)
+      ENDDO
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C 5/22/08 depending on ITYP (1=Exhaust,2=Evap,3=Tire,4=Brake,5=Refill,6=All )
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gsref_cmaq_cb05_soa_2011ec_v6_11f_on
+C    -road_06sep2013.txt')
+C     OPEN(5,FILE=INDRVOC(1:LBET)//'gsref_cmaq_cb6_2014fa_nata_cb6cmaq_1
+C    -4j.txt')
+      OPEN(5,FILE=INDRVOC(1:LBET)//'gsref_ag_cmaq_cb6ae7_2017gb_17j_nf.t
+     -xt')
+      REWIND(5)
+C     DO I=1,319
+C     DO I=1,296
+      DO I=1,194
+      READ(5,*)
+      ENDDO
+      JJ=0
+      II=0        ! Keep track of profiles found
+ 19   CONTINUE
+C     READ(5,'(A10,1X,A5,2X,A8)',END=18)CDUM,CDUMPNM,CDUMSPC
+      READ(5,*,END=18)CDUM,CDUMPNM,CDUMSPC
+      JJ=JJ+1
+      LDUM=LNBLNK(CDUM)
+      LDUMPNM=LNBLNK(CDUMPNM)
+      LDUMSPC=LNBLNK(CDUMSPC)
+      LDST=MAX(1,LDUMSPC-4)
+      IF(CDUMSPC(1:5).EQ.'PM2_5')THEN
+      CNUMONR='-999'
+      DO 20 I=1,ISCCMX
+      IF(SCCNUM(I).EQ.CDUM(1:LDUM))THEN
+C     IF(CDUMPNM(1:1).EQ.'D')CDUMPNM(1:1)='9'
+C     READ(CDUMPNM,'(I)')JPROF
+C     WRITE(7,'(A,A,I5,1X,A)')SCCNUM(I),' PM25prfnm,Spc_lbl= ',JPROF,
+C    -CDUMSPC
+C     WRITE(7,'(A,A,1X,A)')SCCNUM(I),' PM25prfnm,Spc_lbl= ',CDUMSPC
+C     CALL FLUSH(7)
+      II=II+1     ! Keep track of profiles found
+C     INUM=INUMONR
+C     IF(INUM.EQ.-999)GOTO 24
+      DO 23 J=1,IPM2PMX
+C     WRITE(7,*)J,CDUMPNM,CPRFSV(J)
+C     CALL FLUSH(7)
+C     IF(INUM.EQ.NPRFSV(J))THEN
+      IF(trim(CDUMPNM).EQ.trim(CPRFSV(J)))THEN
+      IF(ISCCPM2(I).LT.0)THEN
+      ISCCPM2(I)=J
+      ELSE
+      WRITE(7,*)' Duplct Prfl assgn,SCC,prf= ',SCCNUM(I),CDUMPNM
+      WRITE(*,*)' Duplct Prfl assgn,SCC,prf= ',SCCNUM(I),CDUMPNM
+      STOP777
+      ENDIF
+C     WRITE(7,'(A10,A,I5)')SCCNUM(I),' PM25prfnm=',J,' ',CDUMSPC
+      GOTO 24
+      ENDIF
+ 23   CONTINUE
+      WRITE(*,'(A,A10)')'No PM_SCCprfassign match to SCC= ',SCCNUM(I)
+      WRITE(7,'(A,A10)')'No PM_SCCprfassign match to SCC= ',SCCNUM(I)
+      STOP777
+ 24   CONTINUE
+      GOTO 19
+      ENDIF  ! End of (SCCNUM(I).EQ.CDUM(1:LDUM)) test
+ 20   CONTINUE
+      GOTO 19
+      ENDIF ! End of (CDUMSPC(LDUMSPC-4:LDUMSPC).EQ.'PM2_5') test
+      GOTO 19
+ 18   CONTINUE
+      WRITE(7,*)JJ,' PM2PRFC Total Profl recs,',II,' total assigns'
+      WRITE(*,*)JJ,' PM2PRFC Total Profl recs,',II,' total assigns'
+      ITRAK=0
+      DO I=1,ISCCMX
+      II=0     ! Keep track of profiles found
+      IPRFOUT=-999
+      J=ISCCPM2(I)
+      IF(J.NE.-999)THEN
+      II=II+1  ! Keep track of profiles found
+C     IPRFOUT=NPRFSV(J)
+      IF(II.EQ.0)ITRAK=ITRAK+1
+      WRITE(7,*)I,SCCNUM(I),CPRFSV(J)
+      ENDIF
+      ENDDO
+      IF(ITRAK.GT.0)THEN
+      WRITE(*,*)ITRAK,' Missing PM25 profile assignments, not stopping'
+      WRITE(7,*)ITRAK,' Missing PM25 profile assignments, not stopping'
+C     STOP777
+      ENDIF
+      WRITE(*,*)'PM2.5 SCC to profile assign done '
+      WRITE(7,*)'PM2.5 SCC to profile assign done '
+C     ISTOP=1
+C     IF(ISTOP.EQ.1)STOP999
+      RETURN
+      END
+      SUBROUTINE PM2SPEC(ISC,IFIP,II,ELEMADD,IHRDIF,ICEMSW)
+C ICEMSW= 0 , use SCC and EPA factors from SCC2TAF routine, ELEMADD (ton/dy) is weekly average
+C ICEMSW= -1 , ELEMADD is daily average (predetermined) use SCC and EPA hourly factors from SCC2TAF
+C ICEMSW= +1 , ELEMADD is daily avrg (predetermined), use hourly factors supplied in CEMHRFAC(24) vector
+      include 'commons/parame.h'
+      PARAMETER(IBADMX=5)
+      PARAMETER(IHCRECL=4*IPM25*24)
+      include 'commons/sccidex.h'
+      include 'commons/pm2idex.h'
+      include 'commons/tafidex.h'
+      include 'commons/timvari.h'
+      include 'commons/names.h'
+      include 'commons/latlonlm.h'
+C===============================================================================
+      DIMENSION SCRAT(IRLPMX),A(24,IPM25)
+C Units of PM2.5 emissions (PM2EM) are tons per (4km) grid square per day
+      CHARACTER*10 SCCBADSV(IBADMX)
+      INTEGER STATUS,SYSTEM
+      CHARACTER*4 HCFILNM,HRNAM
+      CHARACTER*12 OUDIRF
+      CHARACTER*20 FIL
+      LOGICAL EXISTS
+      DATA ITIMS,ISAV/0,0/
+      SAVE
+      ITIMS=ITIMS+1
+      IF(ITIMS.EQ.1)THEN
+      DO IHR=1,24
+      WRITE(HRNAM,'(A2,I2.2)')'HR',IHR
+      INQUIRE(FILE=HRNAM,EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'Hour directory ',HRNAM,'  DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir '//HRNAM)
+      ENDIF
+      ENDDO
+      INQUIRE(FILE='dayav',EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'dayav directory DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir dayav')
+      ENDIF
+      IF(ITIMVAR.EQ.1)THEN
+      INQUIRE(FILE='tmpdira',EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'tmpdira directory  DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir tmpdira')
+      ELSE  ! erase anything in tmpdira
+      WRITE(*,*)'tmpdira directory  EXISTS, erasing PM file'
+      STATUS=SYSTEM('rm -rf tmpdira/PMtv')
+      ENDIF
+      DO ISP=1,IPM25
+      DO I=1,24
+      A(I,ISP)=0.
+      ENDDO
+      ENDDO
+      WRITE(HCFILNM,'(A4)')'PMtv'
+      OUDIRF='tmpdira/'//HCFILNM
+      IUN=11
+      OPEN(UNIT=IUN,FILE=OUDIRF,ACCESS='DIRECT',RECL=IHCRECL,
+     -FORM='UNFORMATTED')
+      N0=0
+C     DO 2 J=1,JX
+C     DO 2 I=1,IX
+      DO 2 I=1,IRLPMX
+      N0=N0+1
+      WRITE(IUN,REC=N0)A
+ 2    CONTINUE
+      WRITE(*,16)OUDIRF,IUN,N0
+ 16   FORMAT('WRITTEN TO ',A12,' UNIT=',I2,' N=',I7)
+      ENDIF   !IF(ITIMVAR=1)
+      ELSEIF(ISC.LT.0)THEN
+      IF(ITIMVAR.EQ.1)THEN
+      WRITE(7,*)' WRITING ',IPM25,' PM25 hourly variation file'
+      CALL FLUSH(7)
+      DO ISP=1,IPM25
+      WRITE(HCFILNM,'(A2,I2.2)')'PM',ISP
+C Modify for putting hourly 2-D emission files in subdirectories HR01,HR02,HR03...
+      DO 15 IHR=1,24
+      WRITE(HRNAM,'(A2,I2.2)')'HR',IHR
+      FIL=HRNAM//'/'//HCFILNM
+      OPEN(8,FILE=FIL,FORM='FORMATTED')
+      EMAX=-1.E30
+      ETOT=0.
+      IUN=11
+      DO I=1,IRLPMX
+      SCRAT(I)=0.
+      READ(IUN,REC=I)A
+      DO J=1,24
+      SCRAT(I)=SCRAT(I)+A(J,ISP)/24.
+      ENDDO
+      ETOT=ETOT+SCRAT(I)
+      IF(SCRAT(I).GT.EMAX)THEN
+      EMAX=SCRAT(I)
+      IMAX=I
+      ENDIF
+      ENDDO
+C     WRITE(7,*)ISP,' ',NAMPM2(ISP),'Tot,MaxEm,I=',ETOT,EMAX,IMAX
+C     WRITE(8)SCRAT
+      WRITE(8,'(1P12E9.2)')SCRAT
+      CLOSE(8)
+      LLET3=LNBLNK(FIL)
+      STATUS=SYSTEM('gzip -f '//FIL(1:LLET3)//'&')
+      WRITE(7,'(A,I2,1X,A,A,1P,2E11.4,2I)')'Hr ',IHR-1,NAMPM2(ISP),
+     -' Totl,Max,I,J= ',ETOT,EMAX,IMAX,JMAX
+15    CONTINUE
+      WRITE(*,'(A,A)')'24hr write= ',NAMPM2(ISP)
+      WRITE(7,'(A,A)')'24hr write= ',NAMPM2(ISP)
+      FIL='dayav/'//HCFILNM
+      LLET3=LNBLNK(FIL)
+      OPEN(8,FILE=FIL,FORM='FORMATTED')
+C Refill SCRAT with daily average from hourly temp files, units of short ton per day per 4km grid
+      SCRAT=0.
+      DO IHR=1,24
+      IN=0
+      DO 8 I=1,IRLPMX
+      IN=IN+1
+      READ(IUN,REC=IN)A
+       SCRAT(I)=SCRAT(I)+A(IHR,ISP)
+8     CONTINUE
+      ENDDO
+      EMAX=-1.E30
+      ETOT=0.
+      DO I=1,IRLPMX
+      ETOT=ETOT+SCRAT(I)
+      IF(SCRAT(I).GT.EMAX)THEN
+      EMAX=SCRAT(I)
+      IMAX=I
+      ENDIF
+      ENDDO
+      WRITE(8,'(1P12E9.2)')SCRAT
+      CLOSE(8)
+      STATUS=SYSTEM('gzip -f '//FIL(1:LLET3)//'&')
+      WRITE(7,'(2A,1P2E10.3,I)')NAMPM2(ISP),
+     -' Diurn Totl(ton/dy),Max,I=',ETOT,EMAX,IMAX
+      WRITE(*,'(2A,1P2E10.3,I)')NAMPM2(ISP),
+     -' Diurn Totl(ton/dy),Max,I=',ETOT,EMAX,IMAX
+      ENDDO   !ISP=1,IPM25
+      ENDIF   !IF ITIMVAR=1
+      CLOSE(IUN)
+      RETURN
+      ENDIF
+      IF(ISCCPM2(ISC).EQ.-999)THEN
+      IF(ISAV.EQ.0)THEN
+      ISAV=1
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      WRITE(7,'(A,A10,I)')'No PM25 assgn to SCC,ISC=',SCCNUM(ISC),ISC
+      GOTO 3
+      ELSE
+      DO I=1,ISAV
+      IF(SCCNUM(ISC).EQ.SCCBADSV(I))GOTO 3
+      ENDDO
+      ISAV=ISAV+1
+      IF(ISAV.GT.IBADMX)THEN
+      WRITE(*,*)'Bad SCCs-no PM2.5 profile > ',IBADMX,' stopping'
+      WRITE(7,*)'Bad SCCs-no PM2.5 profile > ',IBADMX,' stopping'
+      STOP777
+      ENDIF
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      ENDIF
+      WRITE(7,'(A,A10)')'No PM2.5 assign to SCC= ',SCCNUM(ISC)
+      ELSE
+C Everything OK for updating PM2EM matrices, PM2EM,ELEMPM2 in ton per day per (4km) grid
+C 5/22/08 depending on ITYP (1=Exhaust,2=Evap,3=Tire,4=Brake,5=Refill,6=All(VOC) )
+      IPRF=ISCCPM2(ISC)
+      IUN=11
+      READ(IUN,REC=II)A
+      DO I=1,IPM25
+      IF(PRFLPM2(I,IPRF).GT.0.)THEN
+      ELEMPM2=PRFLPM2(I,IPRF)*ELEMADD
+C     PM2EM(I,II)=PM2EM(I,II)+ELEMPM2
+      PM2EM(ISC,I)=PM2EM(ISC,I)+ELEMPM2
+C Save hourly emissions if ITIMVAR=1
+      IF(ICEMSW.LE.0)THEN
+      IWKDX=IDWK(ISC,IFIP)
+      IDYDX=IDDY(ISC,IFIP)
+      IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      IF(ISAV.EQ.0)THEN
+      ISAV=1
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      WRITE(7,'(A,A10)')'No taff assign to SCC= ',SCCNUM(ISC)
+      GOTO 3
+      ELSE
+      DO K=1,ISAV
+      IF(SCCNUM(ISC).EQ.SCCBADSV(K))GOTO 3
+      ENDDO
+      ISAV=ISAV+1
+      IF(ISAV.GT.IBADMX)THEN
+      WRITE(*,*)'Bad SCCs-no temp profile > ',IBADMX,' stopping'
+      STOP777
+      ENDIF
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      ENDIF
+      WRITE(7,'(A,A10)')'No taff assign to SCC= ',SCCNUM(ISC)
+C Only found 1 SCC=2801500000 in area files that has July TAFF=0, but want
+C to keep OSD numbers even though TAFF assign to annual is zero, change ELSE
+C to endif to continue
+      ENDIF   !IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      ENDIF   !IF(ICEMSW.LE.0)THEN
+      IF(ITIMVAR.EQ.1)THEN
+      FACDY=1.
+      IF(ICEMSW.EQ.0)THEN
+      IF(IDYoWK.EQ.1)THEN   !Weekday (M-F) emission
+      FACDY=(FSCWK(IWKDX,1)+FSCWK(IWKDX,2)+FSCWK(IWKDX,3)+FSCWK(IWKDX,4)
+     -+FSCWK(IWKDX,5))*7./5.
+      ELSEIF(IDYoWK.EQ.2)THEN   !Saturday emission
+      FACDY=FSCWK(IWKDX,6)*7.
+      ELSEIF(IDYoWK.EQ.3)THEN   !Sunday emission
+      FACDY=FSCWK(IWKDX,7)*7.
+      ENDIF
+      ENDIF  ! Endof ICEMSW=0 test
+      DO 20 IHR=1,24
+C IHRPLAC= 1 for UTC00-UTC01, =2 for UTC01-UTC02,...etc.
+      IHRPLAC=1+MOD(IHR-1+IHRDIF,24)
+      IF(ICEMSW.LE.0)THEN
+      A(IHRPLAC,I)=A(IHRPLAC,I)+ELEMPM2*FACDY*FSCDY(IDYDX,IHR)
+      ELSE ! This is a CEMS record with CEMS hourly factors in CEMHRFAC
+      A(IHRPLAC,I)=A(IHRPLAC,I)+ELEMPM2*CEMHRFAC(IHR)
+      ENDIF
+ 20   CONTINUE
+      WRITE(IUN,REC=II)A
+C Hourly PM2.5 emission files - units in tons/hr per 4km grid square
+      ENDIF   !IF ITIMVAR=1
+      ENDIF   !IF (PRFLPM2(I,IPRF).GT.0.)THEN
+      ENDDO   !I=1,IPM25
+      ENDIF
+ 3    CONTINUE
+      RETURN
+      END
+      SUBROUTINE TIMVAR(ISC,IFIP,II,ELEMADD,IHRDIF,ICEMSW)
+C ICEMSW= 0 , use SCC and EPA factors from SCC2TAF routine, ELEMADD (ton/dy) is weekly average
+C ICEMSW= -1 , ELEMADD is daily average (predetermined) use SCC and EPA hourly factors from SCC2TAF
+C ICEMSW= +1 , ELEMADD is daily avrg (predetermined), use hourly factors supplied in CEMHRFAC(24) vector
+      include 'commons/parame.h'
+      PARAMETER(IBADMX=5)
+      include 'commons/sccidex.h'
+      include 'commons/tafidex.h'
+      include 'commons/timvari.h'
+      include 'commons/names.h'
+C===============================================================================
+      DIMENSION SCRAT(IRLPMX)
+      CHARACTER*10 SCCBADSV(IBADMX)
+      CHARACTER*4 HRNAM
+      CHARACTER*20 FIL
+      INTEGER STATUS,SYSTEM
+      LOGICAL EXISTS
+      DATA ITIMS,ISAV/0,0/
+      SAVE
+      ITIMS=ITIMS+1
+      IF(ITIMS.EQ.1)THEN
+      WRITE(TVDIRNM,'(A5)')'tvar/'
+      INQUIRE(FILE='tvar',EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'TIMEvariation directories DONT EXIST, making them'
+      STATUS=SYSTEM('mkdir tvar')
+      ENDIF
+      ELSEIF(ISC.LT.0)THEN
+      WRITE(7,*)' WRITING ',NAM,' hourly variation file'
+C 3/14/15
+      CALL FLUSH(7)
+C Modify for putting hourly 2-D emission files in subdirectories HR01,HR02,HR03......
+      DO 15 IHR=1,24
+      WRITE(HRNAM,'(A2,I2.2)')'HR',IHR
+      INQUIRE(FILE=HRNAM,EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'Hour directory ',HRNAM,' DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir '//HRNAM)
+      ENDIF
+      FIL=HRNAM//'/'//INARG(1:LLET)
+      OPEN(8,FILE=FIL,FORM='FORMATTED')
+C 3/14/15
+      ETOT=0.
+      EMAX=-1.E30
+      DO I=1,IRLPMX
+      SCRAT(I)=EM(IHR,I)
+      ETOT=ETOT+SCRAT(I)
+      IF(SCRAT(I).GT.EMAX)THEN
+      EMAX=SCRAT(I)
+      IMAX=I
+      ENDIF
+      ENDDO
+      WRITE(8,'(1P12E9.2)')SCRAT
+      CLOSE(8)
+      LLET3=LNBLNK(FIL)
+      STATUS=SYSTEM('gzip -f '//FIL(1:LLET3)//'&')
+      WRITE(7,'(A,I2,1X,A,A,1P,2E11.4,2I)')'Hr ',IHR-1,INARG(1:LLET),
+     -' Totl,Max,I= ',ETOT,EMAX,IMAX
+15    CONTINUE
+      WRITE(*,'(A,A)')'24hr write= ',INARG(1:LLET)
+      WRITE(7,'(A,A)')'24hr write= ',INARG(1:LLET)
+      INQUIRE(FILE='dayav',EXIST=EXISTS)
+      IF(.NOT.EXISTS)THEN
+      WRITE(*,*)'dayav directory DOESNT EXIST, making it'
+      STATUS=SYSTEM('mkdir dayav')
+      ENDIF
+      FIL='dayav/'//INARG(1:LLET)
+      LLET3=LNBLNK(FIL)
+      OPEN(8,FILE=FIL,FORM='FORMATTED')
+C Refill SCRAT with daily average from hourly temp files, units of short ton per day 4km grid
+      SCRAT=0.
+      DO IHR=1,24
+      DO I=1,IRLPMX
+      SCRAT(I)=SCRAT(I)+EM(IHR,I)
+      ENDDO
+      ENDDO
+      ETOT=0.
+      EMAX=-1.E30
+      DO I=1,IRLPMX
+      ETOT=ETOT+SCRAT(I)
+      IF(SCRAT(I).GT.EMAX)THEN
+      EMAX=SCRAT(I)
+      IMAX=I
+      ENDIF
+      ENDDO
+      WRITE(8,'(1P12E9.2)')SCRAT
+      CLOSE(8)
+      STATUS=SYSTEM('gzip -f '//FIL(1:LLET3)//'&')
+      WRITE(7,'(2A,1P2E10.3,I)')INARG(1:LLET),
+     -' Diurn Totl(ton/dy),Max,I=',ETOT,EMAX,IMAX
+      WRITE(*,'(2A,1P2E10.3,I)')INARG(1:LLET),
+     -' Diurn Totl(ton/dy),Max,I=',ETOT,EMAX,IMAX
+C 3/14/15
+      RETURN
+      ENDIF ! Endo of ISC < or = to 0 test
+C     PARAMETER(IMNMX=1500,IWKMX=50,IDYMX=339)
+C     COMMON /SC2TAF/IDMN(ISCCMX,3),IDWK(ISCCMX,3),IDDY(ISCCMX,3),
+C    - FSCWK(IWKMX,7),FSCDY(IDYMX,24)
+C     IF(FSCMN(ISC,7).LE.0.)THEN
+      IF(ICEMSW.LE.0)THEN
+      IWKDX=IDWK(ISC,IFIP)
+      IDYDX=IDDY(ISC,IFIP)
+      IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      IF(ISAV.EQ.0)THEN
+      ISAV=1
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      WRITE(7,'(A,A10)')'No July_taff assign to SCC= ',SCCNUM(ISC)
+      WRITE(6,'(A,A10)')'No July_taff assign to SCC= ',SCCNUM(ISC)
+      CALL FLUSH(7)
+      CALL FLUSH(6)
+      GOTO 3
+      ELSE
+      DO I=1,ISAV
+      IF(SCCNUM(ISC).EQ.SCCBADSV(I))GOTO 3
+      ENDDO
+      ISAV=ISAV+1
+      IF(ISAV.GT.IBADMX)THEN
+      WRITE(*,*)'Bad SCCs-no July temp profile > ',IBADMX,' stopping'
+      STOP777
+      ENDIF
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      ENDIF
+      WRITE(7,'(A,A10)')'No July_taff assign to SCC= ',SCCNUM(ISC)
+C Only found 1 SCC=2801500000 in area files that has July TAFF=0, but want
+C to keep OSD numbers even though TAFF assign to annual is zero, change ELSE
+C to endif to continue
+      ENDIF   !IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      ENDIF   !IF(ICEMSW.LE.0)THEN
+C     ELSE
+C Emission ELEMADD is in ton/dy per 4 km grid square for SSD (summer season day)
+      FACDY=1.
+      IF(ICEMSW.EQ.0)THEN
+      IF(IDYoWK.EQ.1)THEN   !Weekday (M-F) emission
+      FACDY=(FSCWK(IWKDX,1)+FSCWK(IWKDX,2)+FSCWK(IWKDX,3)+FSCWK(IWKDX,4)
+     -+FSCWK(IWKDX,5))*7./5.
+      ELSEIF(IDYoWK.EQ.2)THEN   !Saturday emission
+      FACDY=FSCWK(IWKDX,6)*7.
+      ELSEIF(IDYoWK.EQ.3)THEN   !Sunday emission
+      FACDY=FSCWK(IWKDX,7)*7.
+      ENDIF
+      ENDIF  ! Endof ICEMSW=0 test
+      HRSUM=0.
+      DO I=1,24
+C IHRPLAC= 1 for UTC00-UTC01, =2 for UTC01-UTC02,...etc.
+      IHRPLAC=1+MOD(I-1+IHRDIF,24)
+      IF(ICEMSW.LE.0)THEN
+      EM(IHRPLAC,II)=EM(IHRPLAC,II)+ELEMADD*FACDY*FSCDY(IDYDX,I)
+      HRSUM=HRSUM+FSCDY(IDYDX,I)
+      ELSE ! This is a CEMS record with CEMS hourly factors in CEMHRFAC
+      EM(IHRPLAC,II)=EM(IHRPLAC,II)+ELEMADD*CEMHRFAC(I)
+      HRSUM=HRSUM+CEMHRFAC(I)
+      ENDIF
+C Hourly emission files - units in ton/hr per 4km grid square
+      ENDDO
+      IF((HRSUM.GT.1.1.OR.HRSUM.LT.0.9).AND.HRSUM.GT.0.)THEN
+      WRITE(7,*)'IDYDX,IWKDX,FACDY,HRSUM=',IDYDX,IWKDX,FACDY,HRSUM
+      WRITE(7,*)'II,ISC,IDYoWK,ICEMSW=',II,ISC,IDYoWK,ICEMSW
+      STOP777
+      ENDIF
+ 3    CONTINUE
+      RETURN
+      END
+C ******************************************************************* 
+      SUBROUTINE DYoWKFAC(ISC,IFIP,ICEMSW,FACDY)
+C ICEMSW= 0 , use SCC and EPA factors from SCC2TAF routine, ELEMADD (ton/dy) is weekly average
+C ICEMSW= -1 , ELEMADD is daily average (predetermined) use SCC and EPA hourly factors from SCC2TAF
+C ICEMSW= +1 , ELEMADD is daily avrg (predetermined), use hourly factors supplied in CEMHRFAC(24) vector
+      include 'commons/parame.h'
+      PARAMETER(IBADMX=5)
+      include 'commons/sccidex.h'
+      include 'commons/tafidex.h'
+      include 'commons/timvari.h'
+      include 'commons/names.h'
+C===============================================================================
+      CHARACTER*10 SCCBADSV(IBADMX)
+      DATA ISAV/0/
+      SAVE
+      IF(ICEMSW.LE.0)THEN
+      IWKDX=IDWK(ISC,IFIP)
+      IDYDX=IDDY(ISC,IFIP)
+      IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      IF(ISAV.EQ.0)THEN
+      ISAV=1
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      WRITE(7,'(A,A10)')'DYoW,No July_taff assign to SCC= ',SCCNUM(ISC)
+      WRITE(6,'(A,A10)')'DYoW,No July_taff assign to SCC= ',SCCNUM(ISC)
+      CLOSE(7)
+      CLOSE(6)
+      STOP'777'
+      GOTO 3
+      ELSE
+      DO I=1,ISAV
+      IF(SCCNUM(ISC).EQ.SCCBADSV(I))GOTO 3
+      ENDDO
+      ISAV=ISAV+1
+      IF(ISAV.GT.IBADMX)THEN
+      WRITE(*,*)'Bad SCCs-no July temp profile > ',IBADMX,' stopping'
+      STOP777
+      ENDIF
+      SCCBADSV(ISAV)=SCCNUM(ISC)
+      ENDIF
+      WRITE(7,'(A,A10)')'No July_taff assign to SCC= ',SCCNUM(ISC)
+C Only found 1 SCC=2801500000 in area files that has July TAFF=0, but want
+C to keep OSD numbers even though TAFF assign to annual is zero, change ELSE
+C to endif to continue
+      ENDIF   !IF(IWKDX.LE.0.OR.IDYDX.LE.0)THEN
+      ENDIF   !IF(ICEMSW.LE.0)THEN
+C     ELSE
+C Emission ELEMADD is in ton/dy per 4 km grid square for SSD (summer season day)
+      FACDY=1.
+      IF(ICEMSW.EQ.0)THEN
+      IF(IDYoWK.EQ.1)THEN   !Weekday (M-F) emission
+      FACDY=(FSCWK(IWKDX,1)+FSCWK(IWKDX,2)+FSCWK(IWKDX,3)+FSCWK(IWKDX,4)
+     -+FSCWK(IWKDX,5))*7./5.
+      ELSEIF(IDYoWK.EQ.2)THEN   !Saturday emission
+      FACDY=FSCWK(IWKDX,6)*7.
+      ELSEIF(IDYoWK.EQ.3)THEN   !Sunday emission
+      FACDY=FSCWK(IWKDX,7)*7.
+      ENDIF
+      ENDIF  ! Endof ICEMSW=0 test
+CnoHRvar      HRSUM=0.
+CnoHRvar      DO I=1,24
+CnoHRvarC IHRPLAC= 1 for UTC00-UTC01, =2 for UTC01-UTC02,...etc.
+CnoHRvar      IHRPLAC=1+MOD(I-1+IHRDIF,24)
+CnoHRvar      IF(ICEMSW.LE.0)THEN
+CnoHRvar      EM(IHRPLAC,II)=EM(IHRPLAC,II)+ELEMADD*FACDY*FSCDY(IDYDX,I)
+CnoHRvar      HRSUM=HRSUM+FSCDY(IDYDX,I)
+CnoHRvar      ELSE ! This is a CEMS record with CEMS hourly factors in CEMHRFAC
+CnoHRvar      EM(IHRPLAC,II)=EM(IHRPLAC,II)+ELEMADD*CEMHRFAC(I)
+CnoHRvar      HRSUM=HRSUM+CEMHRFAC(I)
+CnoHRvar      ENDIF
+CnoHRvarC Hourly emission files - units in ton/hr per 4km grid square
+CnoHRvar      ENDDO
+CnoHRvar      IF((HRSUM.GT.1.1.OR.HRSUM.LT.0.9).AND.HRSUM.GT.0.)THEN
+CnoHRvar      WRITE(7,*)'IDYDX,IWKDX,FACDY,HRSUM=',IDYDX,IWKDX,FACDY,HRSUM
+CnoHRvar      WRITE(7,*)'II,ISC,IDYoWK,ICEMSW=',II,ISC,IDYoWK,ICEMSW
+CnoHRvar      STOP777
+CnoHRvar      ENDIF
+ 3    CONTINUE
+      RETURN
+      END
+C ******************************************************************* 
+      SUBROUTINE TIMZON(ICOUN,IHRDIF)
+C     SUBROUTINE TIMZON(ISTAT,ICOU,IHRDIF)
+C  THIS SUBROUTINE TAKES FIPS CODE OF STATE AND COUNTY AND RETURNS
+C  THE HOURLY DIFFERENCE IN TIME BETWEEN UNIVERSAL TIME AND LOCAL
+C  TIME IN THAT PARTICULAR STATE AND COUNTY.  STU MCKEEN 2/4/04
+C  SPECIFY IF DAYLIGHT SAVINGS TIME (IDAYLT=1) IN THIS SUBROUTINE.
+C 11/20/13 Add in time zones for STATE CODES = 75 (US water off
+C canadian provinces), 78 (US Virgin Islands), 85 (coastal waters)
+C 88 (Tribal Lands) 98 (Non-US SECA) and 99 (Gulf of Mexico)
+C     PARAMETER(ITOT=99,IDAYLT=1)
+      PARAMETER(ITOT=99,IDAYLT=0) ! January, no daylight time
+      PARAMETER(IID=9,IIN=10,IKS=4,IKY=42,IMI=4,INB=18,IND=13,
+     -IOR=1,ISD=18,ITN=28,ITX=2)
+      DIMENSION ISTDAT(ITOT),JID(IID),JIN(IIN),JKS(IKS),JKY(IKY),
+     -JMI(IMI),JNB(INB),JND(IND),JOR(IOR),JSD(ISD),JTN(ITN),JTX(ITX)
+C INDLKP are counties in Indiana, in Eastern Time Zone, that observe daylight savings time
+      DIMENSION INDLKP(5)
+C     DATA ISTDAT/6,9,11,7,6,8,0,7,5,5,5,5,5,-10,9,7,6,5,6,6,5,6,5,
+C    -5,5,5,6,6,6,7,6,8,5,5,7,5,5,6,5,6,8,5,4,5,5,6,6,6,7,5,5,4,8,5,6,7/
+      DATA ISTDAT/6,9,11,7,6,8,0,7,5,5,5,5,5,-10,9,7,6,5,6,6,5,6,5,
+     -5,5,5,6,6,6,7,6,8,5,5,7,5,5,6,5,6,8,5,4,5,5,6,6,6,7,5,5,4,8,5,6,7,
+     -0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5,0,0,5,0,0,0,0,0,0,5,0,0,7,0,
+     -0,0,0,0,0,0,0,0,8,5/
+      DATA JID/9,17,21,35,49,55,57,69,79/
+      DATA JIN/51,73,89,91,111,127,129,147,163,173/
+      DATA INDLKP/19,29,43,61,115/
+      DATA JKS/71,75,181,199/
+      DATA JKY/7,39,185,75,35,83,157,145,139,55,225,101,233,33,107,143,
+     -221,219,47,177,149,59,91,27,183,85,31,99,61,227,213,3,141,87,169,
+     -1,207,57,231,53,171,9/
+      DATA JMI/43,53,71,109/
+      DATA JNB/91,75,5,101,135,29,57,49,33,105,7,157,165,45,161,69,123,
+     -13/
+      DATA JND/25,57,85,59,37,65,89,41,1,11,87,33,7/
+      DATA JOR/45/
+      DATA JSD/63,105,31,41,137,117,55,95,119,7,113,47,33,103,71,93,19,
+     -81/
+      DATA JTN/151,13,25,57,93,1,129,89,155,9,123,107,139,65,11,143,
+     -145,105,121,67,73,59,29,179,19,91,163,171/
+      DATA JTX/141,229/
+      SAVE
+      ISTAT=ICOUN/1000
+      ICOU=ICOUN-1000*ISTAT
+      IF(ISTAT.GT.ITOT.OR.ISTAT.LT.1)THEN
+      WRITE(6,*)' BAD STATE IN TIMZON, ISTAT= ',ISTAT,' ICOU= ',ICOU
+C     RETURN
+      STOP
+      ENDIF
+C Daylight savings time ignored in AZ, HI, and 77 counties in Indiana
+C The Indiana counties that DO observe daylight savings time are the
+C 10 counties in the Central time zone in JIN below, and 5 counties
+C in two eastern portions of IN, Dearborn, Ohio counties (new Cincinnati, OH)
+C and Clark, Floyd and Harrison counties (near Louiville, KT).
+C IDYIGN=0 if normal county - observes daylight savings time
+C IDYIGN=1 if ignorant county - ignores daylight savings time
+      IDYIGN=0
+      IHRDIF=ISTDAT(ISTAT)
+      IF(ISTAT.EQ.16)THEN
+C   IDAHO - PACIFIC TIME ZONE COUNTIES
+      DO 1 I=1,IID
+ 1    IF(ICOU.EQ.JID(I))IHRDIF=8
+      ELSEIF(ISTAT.EQ.18)THEN
+      IDYIGN=1
+      DO I=1,5
+      IF(ICOU.EQ.INDLKP(I))IDYIGN=0
+      ENDDO
+C   INDIANA - CENTRAL TIME ZONE COUNTIES
+      DO 2 I=1,IIN
+      IF(ICOU.EQ.JIN(I))THEN
+      IHRDIF=6
+      IDYIGN=0
+      ENDIF
+ 2    CONTINUE
+      ELSEIF(ISTAT.EQ.20)THEN
+C   KANSAS - MOUNTAIN TIME ZONE COUNTIES
+      DO 3 I=1,IKS
+ 3    IF(ICOU.EQ.JKS(I))IHRDIF=7
+      ELSEIF(ISTAT.EQ.21)THEN
+C   KENTUCKY - CENTRAL TIME ZONE COUNTIES
+      DO 4 I=1,IKY
+ 4    IF(ICOU.EQ.JKY(I))IHRDIF=6
+      ELSEIF(ISTAT.EQ.26)THEN
+C   MICHIGAN - CENTRAL TIME ZONE COUNTIES
+      DO 5 I=1,IMI
+ 5    IF(ICOU.EQ.JMI(I))IHRDIF=6
+      ELSEIF(ISTAT.EQ.31)THEN
+C   NEBRASKA - MOUNTAIN TIME ZONE COUNTIES
+      DO 6 I=1,INB
+ 6    IF(ICOU.EQ.JNB(I))IHRDIF=7
+      ELSEIF(ISTAT.EQ.38)THEN
+C   NORTH DAKOTA - MOUNTAIN TIME ZONE COUNTIES
+      DO 7 I=1,IND
+ 7    IF(ICOU.EQ.JND(I))IHRDIF=7
+      ELSEIF(ISTAT.EQ.41)THEN
+C   OREGON - MOUNTAIN TIME ZONE COUNTIES
+      IF(ICOU.EQ.JOR(1))IHRDIF=7
+      ELSEIF(ISTAT.EQ.46)THEN
+C   SOUTH DAKOTA - MOUNTAIN TIME ZONE COUNTIES
+      DO 8 I=1,ISD
+ 8    IF(ICOU.EQ.JSD(I))IHRDIF=7
+      ELSEIF(ISTAT.EQ.47)THEN
+C   TENNESSEE - EASTERN TIME ZONE COUNTIES
+      DO 9 I=1,ITN
+ 9    IF(ICOU.EQ.JTN(I))IHRDIF=5
+      ELSEIF(ISTAT.EQ.48)THEN
+C   TEXAS - MOUNTAIN TIME ZONE COUNTIES
+      DO 10 I=1,ITX
+ 10   IF(ICOU.EQ.JTX(I))IHRDIF=7
+C US coastal waters
+      ELSEIF(ISTAT.EQ.85)THEN
+      IF(ICOU.EQ.1.OR.ICOU.EQ.2)IHRDIF=8
+      IF(ICOU.EQ.3)IHRDIF=6
+      IF(ICOU.EQ.5)IHRDIF=9  ! Alaska time zone
+      IF(ICOU.EQ.5)IHRDIF=-10 ! Hawaii time zone
+C Tribal Lands
+      ELSEIF(ISTAT.EQ.88)THEN
+      IF(ICOU.EQ.1.OR.ICOU.EQ.18.OR.ICOU.EQ.108)IHRDIF=5
+      IF(ICOU.GE.380.AND.ICOU.LE.482.OR.ICOU.GE.862)IHRDIF=6
+      IF(ICOU.EQ.101.OR.ICOU.EQ.124.OR.ICOU.EQ.143.OR.ICOU.EQ.181.OR.
+     -ICOU.EQ.549.OR.ICOU.EQ.568.OR.ICOU.EQ.577.OR.ICOU.EQ.672)IHRDIF=7
+      ELSEIF(ISTAT.EQ.4.OR.ISTAT.EQ.15)THEN
+      IDYIGN=1
+      ENDIF
+      IF(IDAYLT.EQ.1.AND.IDYIGN.EQ.0)IHRDIF=IHRDIF-1
+      RETURN
+      END
+      SUBROUTINE MAPSMP(FLD,IYY,JXX,IA,IB,INY,JA,JB,JNX,CONST,
+     1                  ICHOS,NAME)
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C                                                                     C
+C                                                                     C
+C     THIS SUBROUTINE PRINTS A SAMPLE OF A TWO-DIMENSIONAL DATA FIELD C
+C     ON THE LINE PRINTER WITH 5 SIGNIFICANT DIGITS.                  C
+C                                                                     C
+C     *** NOTE *** THE VALUES OF FLD(I,J) SHOULD BE LIMITED WITHIN    C
+C                  1.E30 --- 1.E-30. IF THE VALUE OUTSIDE THIS        C
+C                  RANGE IS DESIRED, THE PROGRAM SHOULD BE CHANGED    C
+C                  ACCORDINGLY (IN DO LOOP 20).                       C
+C                                                                     C
+C                                                                     C
+C     FLD    : A TWO-DIMENSIONAL ARRAY TO HOLD THE DATA FIELD TO BE   C
+C              SAMPLED AND PRINTED. FLD COULD BE A HORIZONTAL SLICE,  C
+C              FLD(I,J), OR A VERTICAL SLICE FLD(K,I) OR FLD(K,J).    C
+C                                                                     C
+C     IYY    : THE FIRST DIMENSION OF FLD.                            C
+C              FOR THE HORIZONTAL SLICE, IYY IS THE DIMENSION IN THE  C
+C                                        Y DIRECTION.                 C
+C              FOR THE VERTICAL SLICE, IYY IS THE DIMENSION IN THE    C
+C                                      Z DIRECTION.                   C
+C                                                                     C
+C     JXX    : THE SECOND DIMENSION OF FLD.                           C
+C              FOR THE HORIZONTAL SLICE, JXX IS THE DIMENSION IN THE  C
+C                                        X DIRECTION.                 C
+C              FOR THE VERTICAL SLICE, JXX IS THE DIMENSION IN EITHER C
+C                                      THE X OR Y DIRECTION.          C
+C                                                                     C
+C     IA     : INITIAL SAMPLING POINT IN THE FIRST DIMENSION.         C
+C                                                                     C
+C     IB     : FINAL SAMPLING POINT IN THE FIRST DIMENSION.           C
+C                                                                     C
+C     INY    : SAMPLING INTERVAL IN THE FIRST DIMENSION.              C
+C                                                                     C
+C     JA     : INITIAL SAMPLING POINT IN THE SECOND DIMENSION.        C
+C                                                                     C
+C     JB     : FINAL SAMPLING POINT IN THE SECOND DIMENSION.          C
+C                                                                     C
+C     JNX    : SAMPLING INTERVAL IN THE SECOND DIMENSION.             C
+C                                                                     C
+C     CONST  : CONSTANT USED TO BE SUBTRACTED FROM FLD.               C
+C                                                                     C
+C     ICHOS > 0 : FOR HORIZONTAL ARRAY FLD(Y,X)                       C
+C           < 0 : FOR VERTICAL CROSS SECTION FLD(Z,Y) OR FLD(Z,X)     C
+C                                                                     C
+C                                                                     C
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C
+      DIMENSION FLD(JXX,IYY)
+      CHARACTER*21 IFMT1,IFMT2
+      CHARACTER*10 NAME
+      DIMENSION JM(60)
+      DATA KSIGT/5/ 
+      N=7 
+      K1=KSIGT+2
+      K2=124/K1
+      K3=KSIGT/2-1
+      K4=KSIGT-K3-1
+C
+      DO 10 I=IA,IB,INY
+      DO 10 J=JA,JB,JNX
+   10 FLD(J,I)=FLD(J,I)-CONST 
+C
+      FLDMAX=FLD(JA,IA)
+      FLDMIN=FLD(JA,IA)
+      FLDU=10.**KSIGT
+      FLDL=10.**(KSIGT-1)
+      DO 20 J=JA,JB,JNX
+      DO 20 I=IA,IB,INY
+      IF(ABS(FLD(J,I)) .GT. 1.E30 .OR. ABS(FLD(J,I)) .LT. 1.E-30)
+     1  GO TO 20
+      IF (ABS(FLD(J,I)) .GT. FLDMAX) FLDMAX=ABS(FLD(J,I))
+      IF (ABS(FLD(J,I)) .LT. FLDMIN) FLDMIN=ABS(FLD(J,I))
+   20 CONTINUE
+      IF (FLDMAX .EQ. FLDMIN) GO TO 150 
+      IEXP=0
+      DO 50 N1=1,500
+      IF(FLDMAX .GE. FLDU) GO TO 30
+      IF(FLDMAX .LT. FLDL) GO TO 40
+      IF(FLDMAX .LT. FLDU .AND. FLDMAX .GE. FLDL) GO TO 60
+   30 FLDMAX=FLDMAX/10.
+      IEXP=IEXP-1
+      GO TO 50
+   40 FLDMAX=FLDMAX*10.
+      IEXP=IEXP+1
+   50 CONTINUE
+   60 CONTINUE
+      DO 70 I=IA,IB,INY
+      DO 70 J=JA,JB,JNX
+   70 FLD(J,I)=FLD(J,I)*10.**IEXP
+      JX=JB-JA+1
+      IY=IB-IA+1
+      JN=K2*JNX
+      JN1=JN-1
+      WRITE(N,80) NAME,IEXP
+   80 FORMAT(////' DIURN AVERAGE EMIS ',A10,'  ,SCALED BY  1.E',I3)
+      DO 130 J1=JA,JB,JN
+      JL=MIN0(J1+JN1,JB)
+      JT=JL-J1+1
+      JTN=(JT-1)/JNX+1
+      J2N=0
+      DO 90 J2=1,JT,JNX
+      J2N=J2N+1
+   90 JM(J2N)=J1+J2-1
+      WRITE(IFMT1,100) JTN,K4,K3
+  100 FORMAT(5H(/5X,,I2,1H(,I2,5HX,I3,,I2,4HX)/))
+      WRITE(N,IFMT1) (JM(JJ),JJ=1,J2N)
+      WRITE(IFMT2,110) JTN,K1
+  110 FORMAT(4H(I3,,I2,1HF,I2,9H.0,1X,I3))
+      IT=(IY-1)/INY 
+      IR=IY-IT*INY
+      DO 120 I2=IA,IB,INY
+      I1=IB+IA-I2-IR+1
+      IF (ICHOS .LT. 0) I1=I2 
+      WRITE(N,IFMT2) I1,(FLD(J3,I1),J3=J1,JL,JNX),I1
+  120 CONTINUE
+  130 WRITE(N,IFMT1) (JM(JJ),JJ=1,J2N)
+      DO 140 I=IA,IB,INY
+      DO 140 J=JA,JB,JNX
+  140 FLD(J,I)=FLD(J,I)/(10.**IEXP)+CONST
+      GO TO 180
+C
+  150 CONTINUE
+      DO 160 I=IA,IB,INY
+      DO 160 J=JA,JB,JNX
+  160 FLD(J,I)=FLD(J,I)+CONST 
+      WRITE(N,170) NAME,FLDMAX
+  170 FORMAT(/'   ALL OF THE VALUES OF ',A10,' ARE EQUAL TO ',E15.5)
+  180 CONTINUE
+      RETURN
+      END 
+      SUBROUTINE LAMBC (XLAT,XLON,XI,YJ)
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C                                                                     C
+C                                                                     C
+C     THIS SUBROUTINE COMPUTES THE MODEL INDEXES OF A POINT FROM      C
+C     LATITUDE AND LONGITUDE.                                         C
+C                                                                     C
+C     INPUT :                                                         C
+C                                                                     C
+C        XLAT : LATITUDE OF THE POINT.                                C
+C                                                                     C
+C        XLON : LONGITUDE OF THE POINT.                               C
+C                                                                     C
+C     OUTPUT :                                                        C
+C                                                                     C
+C        XI : X COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C        YJ : Y COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C     INFORMATION NEEDED:                                             C
+C                                                                     C
+C        XLATC : LATITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.    C
+C                                                                     C
+C        XLONC : LONGITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.   C
+C                                                                     C
+C        DX    : GRID SIZE IN METERS.                                 C
+C                                                                     C
+C        IL    : X DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        JL    : Y DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        PLM1  : LATITUDE OF THE LOW-LEFT CORNER OF THE MAP.          C
+C                                                                     C
+C        PLM2  : LONGITUDE OF THE LOW-LEFT CORNER OF THE MAP.         C
+C                                                                     C
+C        PLM3  : LATITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.       C
+C                                                                     C
+C        PLM4  : LONGITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.      C
+C                                                                     C
+C        IPROJ : MAP PROJECTION,                                      C
+C                FOR LAMBERT CONFORMAL PROJECTION ONLY                C
+C                                                                     C
+C     NOTE ***                                                        C
+C                                                                     C
+C     A WEST LONGITUDE IS GIVEN BY A NEGATIVE NUMBER; POSITIVE        C
+C     ANGLES DENOTE EAST LONGITUDE.                                   C
+C                                                                     C
+C     A NORTH LATITUDE IS GIVEN BY A POSITIVE NUMBER, AND A NEGATIVE  C
+C     NUMBER FOR A SOUTH LATITUDE.                                    C
+C                                                                     C
+C                                                                     C
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C
+      include 'commons/mappar.h'
+C
+C-----------------------------------------------------------------------
+      DATA POLE,CONV / 90.,57.29578 /
+      DATA A,PH1D / 6370.997,30. /
+      DATA ICLAMB / 0 /
+      DATA XN / 1.000 /
+      SAVE
+C
+      IF (ICLAMB.EQ.0) THEN
+         DS = DXBIGDO/1000.
+      FRTY5D=ATAN(1.)
+      CONV=45./FRTY5D
+C  9/5/03 Modified for more general Lambert Conformal with 2 standard parallels,CLAT1,CLAT2
+      IF (IPROJ.EQ.1)THEN
+C     XN = 0.716 IF CLAT1=30 deg, CLAT2=60 deg
+C     RLAT1=(90.-CLAT1)/CONV
+C     RLAT2=(90.-CLAT2)/CONV
+C     XN=ALOG(SIN(RLAT1)/SIN(RLAT2))/ALOG(TAN(.5*RLAT1)/TAN(.5*RLAT2))
+      RLAT1=CLAT1/CONV
+      RLAT2=CLAT2/CONV
+      XN=ALOG(COS(RLAT1)/COS(RLAT2))/ALOG(TAN(FRTY5D+.5*RLAT2)/
+     -TAN(FRTY5D+.5*RLAT1))
+      PH1D=CLAT1
+      ENDIF
+C     WRITE(7,*)'LAMBC,IPROJ, XN,PH1D= ',IPROJ,XN,PH1D
+C        * COMPUTE LONGITUDE OF X AXIS (C1), ASSUMING ORIGIN AT NORTH POLE.
+         C1 = -XLONC-POLE/XN
+C        * COMPUTE DISTANCE BETWEEN NORTH POLE AND CENTER OF DOMAIN.
+         PH1R = PH1D/CONV
+         CELL = A*SIN(PH1R)/XN
+         PHCR = (POLE-XLATC)/CONV
+         CELL2 = CELL/(TAN(PH1R/2.)**XN)
+         C2 =  CELL2 * (TAN(PHCR/2.)**XN)
+      ENDIF
+C
+C     * COMPUTE DISTANCE BETWEEN POINT AND NORTH POLE.
+      XXL = XN*(XLON+C1)/CONV 
+      PHI2 = (POLE-XLAT)/CONV 
+      RR = CELL2 *TAN(PHI2/2.)**XN
+      XX = RR*COS(XXL)
+      YY = RR*SIN(XXL)+C2
+      XI = FLOAT(IL+1)/2.+XX/DS
+      YJ = FLOAT(JL+1)/2.+YY/DS
+      IF(INEST1.EQ.1)THEN
+      XI=1.+(XI-XNESSTR)*DXBIGDO/DX
+      YJ=1.+(YJ-YNESSTR)*DXBIGDO/DX
+      ENDIF
+      ICLAMB = 1
+C
+C
+      RETURN
+      END 
+      SUBROUTINE MAPCF (XI,YJ,XLAT,XLON)
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C                                                                     C
+C                                                                     C
+C     THIS SUBROUTINE COMPUTES THE LATITUDE AND LONGITUDE FROM MODEL  C
+C     INDEXES OF A POINT.                                             C
+C                                                                     C
+C     INPUT :                                                         C
+C                                                                     C
+C        XI : X COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C        YJ : Y COORDINATE OF THE POINT IN MODEL INDEX.               C
+C                                                                     C
+C     OUTPUT :                                                        C
+C                                                                     C
+C        XLAT : LATITUDE OF THE POINT.                                C
+C                                                                     C
+C        XLON : LONGITUDE OF THE POINT.                               C
+C                                                                     C
+C     INFORMATION NEEDED:                                             C
+C                                                                     C
+C        XLATC : LATITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.    C
+C                                                                     C
+C        XLONC : LONGITUDE OF THE CENTER POINT OF THE MODEL DOMAIN.   C
+C                                                                     C
+C        DX    : GRID SIZE IN METERS.                                 C
+C                                                                     C
+C        IL    : X DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        JL    : Y DIMENSION FOR THE MODEL DOT-POINT DOMAIN.          C
+C                                                                     C
+C        PLM1  : LATITUDE OF THE LOW-LEFT CORNER OF THE MAP.          C
+C                                                                     C
+C        PLM2  : LONGITUDE OF THE LOW-LEFT CORNER OF THE MAP.         C
+C                                                                     C
+C        PLM3  : LATITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.       C
+C                                                                     C
+C        PLM4  : LONGITUDE OF THE UPPER-RIGHT CORNER OF THE MAP.      C
+C                                                                     C
+C        IPROJ : MAP PROJECTION,                                      C
+C                = 1 : LAMBERT CONFORMAL                              C
+C                = 2 : POLAR STEREOGRAPHIC                            C
+C                = 3 : MERCATOR                                       C
+C                                                                     C
+C     NOTE ***                                                        C
+C                                                                     C
+C     A WEST LONGITUDE IS GIVEN BY A NEGATIVE NUMBER; POSITIVE        C
+C     ANGLES DENOTE EAST LONGITUDE.                                   C
+C                                                                     C
+C     A NORTH LATITUDE IS GIVEN BY A POSITIVE NUMBER, AND A NEGATIVE  C
+C     NUMBER FOR A SOUTH LATITUDE.                                    C
+C                                                                     C
+C                                                                     C
+CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC
+C
+      include 'commons/mappar.h'
+C
+C-----------------------------------------------------------------------
+C
+      DATA POLE,CONV / 90.,57.29578 /
+      DATA A,PSI1 / 6370.997,30. /
+      DATA KOUNT / 0 /
+      SAVE
+      KOUNT = KOUNT+1
+      IF(KOUNT.EQ.1)THEN
+      FRTY5D=ATAN(1.)
+      CONV=45./FRTY5D
+      XN = -1.E36
+C  9/5/03 Modified for more general Lambert Conformal with 2 standard parallels,CLAT1,CLAT2
+      IF (IPROJ.EQ.1)THEN
+C     XN = 0.716 IF CLAT1=30 deg, CLAT2=60 deg
+      RLAT1=CLAT1/CONV
+      RLAT2=CLAT2/CONV
+C     XN=ALOG(SIN(RLAT1)/SIN(RLAT2))/ALOG(TAN(.5*RLAT1)/TAN(.5*RLAT2))
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+      XN=ALOG(COS(RLAT1)/COS(RLAT2))/ALOG(TAN(FRTY5D+.5*RLAT2)/
+     -TAN(FRTY5D+.5*RLAT1))
+      PSI1=CLAT1
+C     WRITE(7,*)'IPROJ=1, XN,PSI1= ',XN,PSI1
+      ENDIF
+      IF (IPROJ.EQ.2) XN = 1.0
+C
+C     WRITE (6,1000) XLATC,XLONC
+C
+C-----DS IS GRID SPACING IN METERS
+C-----PSI1 IS COLATITUDE OF LAT WHERE CONE OR PLANE INTERSECTS EARTH
+C
+      IF (IPROJ.EQ.2) PSI1 = 50.0
+      IF (IPROJ.NE.3) PSI1 = PSI1/CONV
+      IF (XLATC.LT.0.) THEN
+         PSI1 = -30.
+         POLE = -90.
+         PSI1 = PSI1/CONV
+      ENDIF
+      ENDIF   ! KOUNT=1
+C
+C-----A IS RADIUS OF EARTH IN KM
+C     SUBTRACT XROT  DEGREES TO ROTATE LAMBERT CONFORMAL PROJECTION
+C     CALCULATE R
+C
+      IF (IPROJ.NE.3) THEN
+         PSX = (POLE-XLATC)/CONV
+         IF (IPROJ.EQ.1) THEN
+            CELL = A*SIN(PSI1)/XN
+            CELL2 = (TAN(PSX/2.))/(TAN(PSI1/2.))
+         ENDIF
+         IF (IPROJ.EQ.2) THEN
+            CELL = A*SIN(PSX)/XN
+            CELL2 = (1.+COS(PSI1))/(1.+COS(PSX))
+         ENDIF
+         R = CELL*(CELL2)**XN
+         XCNTR = 0.0
+         YCNTR = -R
+      ENDIF
+C
+C-----FOR MERCATOR PROJECTION, THE PROJECTION IS TRUE AT LATITUDE AT PHI1
+C
+      IF (IPROJ.EQ.3) THEN
+         PHI1 = 0.0
+         PHI1 = PHI1/CONV
+         C2 = A*COS(PHI1)
+         XCNTR = 0.0
+         PHICTR = XLATC/CONV
+         CELL = COS(PHICTR)/(1.0+SIN(PHICTR))
+         YCNTR = -C2*ALOG(CELL)
+      ENDIF
+C     WRITE (6,1010) XCNTR,YCNTR
+C
+C-----CALCULATE X AND Y POSITIONS OF GRID
+C
+      CNTRJ = (JL+1)/2.
+      CNTRI = (IL+1)/2.
+      IF(INEST1.EQ.1)THEN
+      XIBD=XNESSTR+(XI-1)*DX/DXBIGDO
+      YJBD=YNESSTR+(YJ-1)*DX/DXBIGDO
+      ELSE
+      XIBD=XI
+      YJBD=YJ
+      ENDIF
+      X = XCNTR+(XIBD-CNTRI)*DXBIGDO/1000.
+      Y = YCNTR+(YJBD-CNTRJ)*DXBIGDO/1000.
+C     WRITE (6,1020) X,Y
+C
+C-----NOW CALC LAT AND LONG OF THIS POINT
+C
+      IF (IPROJ.NE.3) THEN
+         IF (XLATC.LT.0.0) THEN
+            FLP = ATAN2(X,Y)
+         ELSE
+            FLP = ATAN2(X,-Y)
+         ENDIF
+C     write(6,*)' flp= ',FLP,' XN= ',XN,' conv= ',CONV,' XLONC= ',XLONC
+         FLPP = (FLP/XN)*CONV+XLONC
+C     write(6,*)' flpp= ',FLPP
+         IF (FLPP.LT.-180.) FLPP = FLPP+360.
+         IF (FLPP.GT.180.) FLPP = FLPP-360.
+         XLON = FLPP
+C     write(6,*)' xlon= ', xlon
+C
+C-----NOW SOLVE FOR LATITUDE
+C
+      ZZZZ=X*X+Y*Y
+C     write(6,*)' r(square)= ',zzzz
+         R = SQRT(X*X+Y*Y)
+         IF (XLATC.LT.0.0) R = -R
+         IF (IPROJ.EQ.1) THEN
+C     write(6,*)' psi1= ',PSI1
+            CELL = (R*XN)/(A*SIN(PSI1))
+            RXN = 1.0/XN
+            CEL1 = TAN(PSI1/2.)*(CELL)**RXN
+C      write(6,*)' r=',R,' xn= ',XN,' cel1= ',CEL1
+         ENDIF
+         IF (IPROJ.EQ.2) THEN
+            CELL = R/A
+         CEL1 = CELL/(1.0+COS(PSI1))
+         ENDIF
+         CEL2 = ATAN(CEL1)
+         PSX = 2.*CEL2*CONV
+C     write(6,*)' pole= ',POLE,' psx= ',PSX
+         XLAT = POLE-PSX
+      ENDIF
+C
+C     CALCULATIONS FOR MERCATOR LAT, LONG AND MAP SCALES...
+C
+      IF (IPROJ.EQ.3) THEN
+         XLON = -XLONC-((X-XCNTR)/C2)*CONV
+         CELL = EXP(Y/C2)
+         XLAT = 2.0*(CONV*ATAN(CELL))-90.0
+      ENDIF
+      RETURN
+C
+C
+ 1000 FORMAT (1X,'LATITUDE AND LONGITUDE OF CENTER OF GRID = ',F8.3,'N',
+     *   F8.3,'W')
+ 1010 FORMAT (1X,'X COORD GRID CNTR = ',F8.1,' Y COORD = ',F8.1)
+ 1020 FORMAT (1X,'X INDEX = ',F8.1,' Y INDEX = ',F8.1)
+C
+      END
+C **********************************************************************
+      SUBROUTINE ASCCSUM(CSCC,ESPEC)
+      include 'commons/parame.h'
+      include 'commons/names.h'
+      CHARACTER*10 CSCC
+      PARAMETER(MAXSCC=11990)  ! "SCC Code.txt taken from Appendix_6.mdb EPA file, 11/5/13
+C     COMMON/UNITS/UNTFAC
+      DIMENSION XSORT(MAXSCC)
+      DIMENSION ESPEC(IALLSP)
+      CHARACTER*10 CSCMX,CSORT(MAXSCC)
+      CHARACTER*120 DESC(MAXSCC),CDUM,SCCTES,SCCTO
+      CHARACTER*54 CHVR1,CHVR2
+      CHARACTER*70 CHVR3,CHVR4
+      CHARACTER*10 CSCCX(MAXSCC),SCCDEF(MAXSCC),SCCIN
+      CHARACTER*5 CDUM5
+      DIMENSION SCCX(IALLSP,MAXSCC)
+      DATA UNTFAC/1./
+      SAVE
+      LSTn=LNBLNK(CSCC)
+C     WRITE(7,*)'CSCC=',CSCC,'.'
+      IF(CSCC(1:LSTn).EQ.'0')THEN
+C Reset sums to 0
+      NUMSCC=0
+      DO 2 J=1,MAXSCC
+      CSCCX(J)=''
+      DO 2 I=1,IALLSP
+ 2    SCCX(I,J)=0.
+      NUMTRAK=0
+Coldr OPEN(8,FILE='/home/stu/newdata/EPAemis/asctdef.txt')
+Cold  OPEN(8,FILE='/home/stu/emis/em96/EPAdata/scc-cd.6-7-99.txt')
+C05   OPEN(8,FILE='/home/stu/emis/em96/EPAdata/scc-cd.4-6-00.txt')
+      OPEN(8,FILE='/home/stu/emis/em11/EPAdata/SCC_Code.txt')
+      ELSEIF(CSCC(1:LSTn).NE.'-999')THEN
+C Keep track of sums by SCC
+      DO 742 I=1,NUMTRAK
+      IF(CSCC.EQ.CSCCX(I))THEN
+      NUMSCC=I
+      GOTO 743
+      ENDIF
+ 742  CONTINUE
+      NUMTRAK=NUMTRAK+1
+      CSCCX(NUMTRAK)=CSCC
+      NUMSCC=NUMTRAK
+ 743  CONTINUE
+      DO 741 L=1,IALLSP
+ 741  SCCX(L,NUMSCC)=SCCX(L,NUMSCC)+ESPEC(L)
+      ELSE
+C Write out sums and descriptors if ISCCI=-999
+      REWIND(8)
+C     READ(8,'(1X)')
+      SCCTO=''
+      II=0
+      IREAD=0
+ 112  CONTINUE
+C     READ(8,'(I2,I3,I4,I4,A35,A40,A45,A40,A55)',END=113)ISCC1,ISCC2,
+C    -ISCC3,ISCC4,DUM1,CHVR1,CHVR2,CHVR3,CHVR4
+C 8/26/99 New SCC definition file - record 7193 is the first area (mobile-nonmobile) record type
+C     IF(IREAD.LT.7192)THEN
+C 1/22/03 New SCC definition file - record 7239 is the first area (mobile-nonmobile) record type
+C05      IF(IREAD.LT.7238)THEN
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C05      READ(8,'(I2,I3,I3,13X,A54,A54,A70,A70)',END=113)ISCC1,ISCC2,ISCC3,
+C05     -CHVR1,CHVR2,CHVR3,CHVR4
+C05      ISCCTES=ISCC3+1000*ISCC2+1000000*ISCC1
+C05      ELSE
+C05      READ(8,'(1X,I1,I3,I3,I3,10X,A54,A54,A70,A70)',END=113)ISCC1,ISCC2,
+C05     -ISCC3,ISCC4,CHVR1,CHVR2,CHVR3,CHVR4
+C05      ISCCTES=ISCC4+1000*ISCC3+1000000*ISCC2+1000000000*ISCC1
+C05      ENDIF
+      READ(8,*,END=113)SCCIN,CDUM5,SCCTES
+C     READ(8,'(A,A,A)',END=113)SCCIN,CDUM5,SCCTES
+      IREAD=IREAD+1
+C     IF(SCCTES.EQ.SCCTO)GOTO 112
+C     SCCTO=SCCTES
+      II=II+1
+      IF(II.GT.MAXSCC)THEN
+      WRITE(9,*)' Too many SCCs, II= ',II,' at IREAD=',IREAD
+      STOP
+      ENDIF
+      LLST=LNBLNK(SCCIN)
+      SCCDEF(II)=SCCIN(1:LLST)
+      LEN1=LNBLNK(SCCTES)
+      LENTO=MIN(100,LEN1)
+      DESC(II)=SCCTES(1:LENTO)
+C     WRITE(7,'(I4,1X,A,1X,A:)')II,SCCDEF(II),DESC(II)
+      GOTO 112
+C End of new SCC class find
+ 113  CONTINUE
+C End of record on file of SCC description file for area sources
+      IDEFNM=II
+C     WRITE(7,*)' Number of SCC descriptors=',IDEFNM
+C End of point or area file descriptor IF-THEN structure
+      DO 115 ISP=1,IALLSP
+      INN=0
+      XSMAX=-1000.
+      XSUM=0.
+      DO 116 I=1,NUMTRAK
+      IF(SCCX(ISP,I).GT.0.)THEN
+      INN=INN+1
+      XSORT(INN)=SCCX(ISP,I)
+      CSORT(INN)=CSCCX(I)
+      XSUM=XSUM+XSORT(INN)
+      IF(XSORT(INN).GT.XSMAX)THEN
+      XSMAX=XSORT(INN)
+      CSCMX=CSORT(INN)
+      IMAX=INN
+      ENDIF
+      ENDIF
+ 116  CONTINUE
+      WRITE(9,*)NAMSP(ISP),' ',NAM,CASENAM,' SCC count=',INN
+      RUNSUM=0.
+      DO 177 I=1,INN
+      RUNSUM=RUNSUM+XSMAX
+      DO 178 II=1,IDEFNM
+      IF(CSCMX.EQ.SCCDEF(II))THEN
+C23456789 123456789 123456789 123456789 123456789 123456789 123456789 12
+C     WRITE(9,'(1PE11.3,0P,2F6.3,1X,I8,1X,A100:)')XSMAX*UNTFAC,
+      FRTES=RUNSUM/XSUM
+      CDUM=DESC(II)
+      LEN5=LNBLNK(CDUM)
+      WRITE(9,'(1PE11.3,0P,2F6.3,1X,A10,1X,A)')XSMAX*UNTFAC,
+     -XSMAX/XSUM,FRTES,CSCMX,CDUM(1:LEN5)
+      IF(I.GT.2.AND.FRTES.GT..98.AND.NAMSP(ISP).NE.' METHANE  ')GOTO 115
+      GOTO 179
+      ENDIF
+ 178  CONTINUE
+      WRITE(9,'(1PE11.3,0P,2F6.3,1X,A10,1X,A18)')XSMAX*UNTFAC,
+     -XSMAX/XSUM,RUNSUM/XSUM,CSCMX,'No SCC code found'
+ 179  CONTINUE
+      XSORT(IMAX)=0.
+      CSORT(IMAX)=''
+      XSMAX=-1000.
+      DO 187 J=1,INN
+      IF(XSORT(J).GT.XSMAX)THEN
+      XSMAX=XSORT(J)
+      CSCMX=CSORT(J)
+      IMAX=J
+      ENDIF
+ 187  CONTINUE
+ 177  CONTINUE
+ 115  CONTINUE
+      ENDIF
+C End of ISCCI=0,ISCC, or -999 IF-THEN structure
+      RETURN
+      END
+C **********************************************************************
+      SUBROUTINE PRNTREC(II,IUN)
+      include 'commons/pvars.h'
+      INTEGER IUN
+      WRITE(IUN,*)'XXXXXXXXXXXXXXXXX REC= ',II,' XXXXXXXXXXXXXXXXXXX'
+      WRITE(IUN,*)'ICOUN= ',ICOUN
+      WRITE(IUN,*)'SITEID= ',SITEID
+      WRITE(IUN,*)'UNITID= ',UNITID
+      WRITE(IUN,*)'ERPTID= ',ERPTID
+      WRITE(IUN,*)'PROCID= ',PROCID
+      WRITE(IUN,*)'SITEDESC= ',SITEDESC
+      WRITE(IUN,*)'ISTRMNDY= ',ISTRMNDY
+      WRITE(IUN,*)'IENDMNDY= ',IENDMNDY
+      WRITE(IUN,*)'POLCODE,ANN_EMS= ',POLCODE,ANN_EMS
+      WRITE(IUN,*)'ISCC= ',ISCC
+      WRITE(IUN,*)'STKHGT= ',STKHGT
+      WRITE(IUN,*)'STKDIAM= ',STKDIAM
+      WRITE(IUN,*)'STKTEMP= ',ISTKTMP
+      WRITE(IUN,*)'STKFLOW= ',STKFLOW
+      WRITE(IUN,*)'STKVEL= ',STKVEL
+      WRITE(IUN,*)'THRUPUTS= ',WINTHRU,SPRTHRU,SUMTHRU,FALTHRU
+      WRITE(IUN,*)'XLAT= ',XLAT
+      WRITE(IUN,*)'XLON= ',XLON
+      WRITE(IUN,*)'IRTYP= ',IRTYP
+      WRITE(IUN,*)'FUGHT= ',FUGHT
+      WRITE(IUN,*)'IYEAR= ',IYEAR
+      RETURN
+      END
+EOFB
+#
+if ( -e point.x ) rm point.x
+pgf90 -O3 -o point.x point.f   # tornado,mamma compile
+#pgf90 -g -C -o point.x point.f   # mamma compile
+#f90 -g -C -o point.x point.f   # haze compile
+#f90 -O3 -o point.x point.f
+#pgf90 -O -byteswapio -o point.x point.f   # mamma compile
+#
+point.x NOX
+point.x CO
+point.x SO2
+point.x NH3
+point.x PM10-PRI
+point.x VOC
+point.x PM25-PRI
+point.x CO2
+#point.x
+date
+time
+#
+#rm o3plt.*
+if ($ENVIRONMENT == "BATCH") then
+   exit (0)
+#else if ($ENVIRONMENT == "INTERACTIVE") then
+#   ictrans gmeta
+endif
